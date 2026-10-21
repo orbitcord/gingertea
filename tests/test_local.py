@@ -254,7 +254,7 @@ def test_h264_mov_to_mp4_copies():
     assert after(args, "-c:v") == "copy"
     assert after(args, "-c:a") == "copy"
     assert "+faststart" in args
-    assert args[-1] == "/out/holiday.mp4"
+    assert args[-1] == str(Path("/out/holiday.mp4"))
     assert is_fast_copy(info, choice)
 
 

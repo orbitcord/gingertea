@@ -49,16 +49,19 @@ def test_fetch_unpacks_once(bundle, monkeypatch):
 
 def test_fetch_replaces_a_broken_attempt(bundle):
     bundle.mkdir(parents=True)
-    (bundle / "ffmpeg").write_text("half a file")  # no crumb: an interrupted install
+    executable = "ffmpeg.exe" if sys.platform == "win32" else "ffmpeg"
+    (bundle / executable).write_text("half a file")  # no crumb: an interrupted install
     deps.fetch_bundled_ffmpeg()
     assert (bundle / deps.CRUMB).exists()
-    assert "fake" in (bundle / "ffprobe").read_text()
+    executable = "ffprobe.exe" if sys.platform == "win32" else "ffprobe"
+    assert "fake" in (bundle / executable).read_text()
 
 
 def test_fetch_rejects_a_bad_download(bundle, tmp_path, monkeypatch):
     broken = tmp_path / "broken.zip"
     with zipfile.ZipFile(broken, "w") as zf:
-        zf.writestr(f"{deps.platform_key()}/ffmpeg", "x")  # no ffprobe
+        executable = "ffmpeg.exe" if sys.platform == "win32" else "ffmpeg"
+        zf.writestr(f"{deps.platform_key()}/{executable}", "x")  # no ffprobe
     monkeypatch.setitem(deps.FFMPEG_ZIPS, deps.platform_key(), broken.as_uri())
     with pytest.raises(OSError, match="ffprobe"):
         deps.fetch_bundled_ffmpeg()

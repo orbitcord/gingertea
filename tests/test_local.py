@@ -71,8 +71,8 @@ def test_plain_path_with_spaces(tmp_path):
 
 def test_escaped_and_quoted_paths(tmp_path):
     f = touch(tmp_path, "My Holiday.mov")
-    escaped = str(f).replace(" ", "\\ ")
-    assert parse_paths(escaped) == [f]
+    escaped = f.as_posix().replace(" ", "\\ ")
+    assert parse_paths(escaped, windows=False) == [f]
     assert parse_paths(f"'{f}'") == [f]
     assert parse_paths(f'"{f}"  ') == [f]
 
@@ -84,8 +84,8 @@ def test_file_url(tmp_path):
 
 def test_several_dropped_files(tmp_path):
     a, b = touch(tmp_path, "a.mov"), touch(tmp_path, "b c.png")
-    text = f"{a} {str(b).replace(' ', chr(92) + ' ')} {a}"
-    assert parse_paths(text) == [a, b]  # duplicates dropped, order kept
+    text = f"{a.as_posix()} {b.as_posix().replace(' ', chr(92) + ' ')} {a.as_posix()}"
+    assert parse_paths(text, windows=False) == [a, b]  # duplicates dropped, order kept
 
 
 def test_windows_quoted_paths(tmp_path):
@@ -214,7 +214,7 @@ def test_every_format_has_a_note_and_builds():
                 continue
             src = image() if kind == "image" else video()
             args = build_ffmpeg_args(src, Choice(kind, fmt), Path(f"/o/x.{fmt}"))
-            assert args[-1] == f"/o/x.{fmt}"
+            assert args[-1] == str(Path(f"/o/x.{fmt}"))
     assert set(formats_for("frames")) == set(formats_for("image")) - {"jxl", "heic"}
 
 
@@ -250,7 +250,7 @@ def test_h264_mov_to_mp4_copies():
     info = video("h264", "aac")
     choice = Choice("video", "mp4")
     args = build_ffmpeg_args(info, choice, Path("/out/holiday.mp4"))
-    assert args[:5] == ["-hide_banner", "-nostdin", "-y", "-i", "/in/holiday.mov"]
+    assert args[:5] == ["-hide_banner", "-nostdin", "-y", "-i", str(info.path)]
     assert after(args, "-c:v") == "copy"
     assert after(args, "-c:a") == "copy"
     assert "+faststart" in args
@@ -385,7 +385,7 @@ def test_image_caps_and_half():
 def test_frames_go_into_a_folder():
     args = build_ffmpeg_args(video(), Choice("frames", "png", "1"), Path("/out/holiday frames"))
     assert after(args, "-vf") == "fps=1"
-    assert args[-1] == "/out/holiday frames/holiday %04d.png"
+    assert args[-1] == str(Path("/out/holiday frames/holiday %04d.png"))
     every = build_ffmpeg_args(video(), Choice("frames", "jpg"), Path("/out/f"))
     assert "-vf" not in every and after(every, "-q:v") == "2"
 

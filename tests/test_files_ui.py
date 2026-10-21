@@ -84,7 +84,7 @@ def make(folder: Path, *names: str) -> list[Path]:
 
 
 def escaped(paths) -> str:
-    return " ".join(str(p).replace(" ", "\\ ") for p in paths)
+    return " ".join(f'"{p}"' for p in paths)
 
 
 async def test_drop_switches_tab_and_converts(files_fakes, tmp_path):

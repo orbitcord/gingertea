@@ -67,7 +67,6 @@ The footer lists the keyboard shortcuts, and its shortcuts are clickable.
 | `l` or `4` | Search supported sites |
 | `s` or `3` | Open Settings |
 | `t` | Choose a theme |
-| `v` | Cycle the Ginger, Dusk and Tide looks |
 | `o` | Reveal the last saved file |
 | `u` | Update yt-dlp |
 | `ctrl+t` | Switch between Download and Convert files |
@@ -128,8 +127,7 @@ Settings, including your theme and download folder, live in:
 
 ### Themes
 
-Masala Chai is the default dark theme. Press `v` to cycle the Ginger, Dusk and Tide
-looks, which change the wordmark, colors and borders together. Press `t` or click Themes
+Masala Chai is the default dark theme. Press `t` or click Themes
 to choose Tea House, Matcha, Earl Grey, Masala Chai, Hibiscus, gingertea light, or a
 built-in Textual theme. gingertea remembers your choice.
 

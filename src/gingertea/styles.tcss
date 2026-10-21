@@ -553,27 +553,11 @@ MainScreen.-short #files { max-height: 5; }
 MainScreen.-short #files-actions Button { height: 1; border: none; }
 #error-hint { max-height: 5; overflow-y: auto; }
 
-/* ---------- looks: header art lives in logo.py, borders and weight live here ---------- */
+/* ---------- frames: soft rounded borders on inputs and dialogs ---------- */
 
-
-/* Ginger: soft rounded frames. */
-.-look-ginger .source-row { border: round $panel; }
-.-look-ginger .source-row:focus-within { border: round $primary; }
-.-look-ginger #dialog { border: round $primary; }
-
-/* Dusk: heavy rules and thick frames. */
-.-look-dusk .source-row { border: heavy $panel; }
-.-look-dusk .source-row:focus-within { border: heavy $primary; }
-.-look-dusk VideoCard, .-look-dusk DownloadQueue, .-look-dusk #files-card,
-.-look-dusk #keys, .-look-dusk #tabs { border-top: heavy $panel; }
-.-look-dusk #tabs { border-top: none; border-bottom: heavy $panel; }
-.-look-dusk #dialog { border: heavy $primary; }
-
-/* Tide: tall half-block frames with a filled look. */
-.-look-tide .source-row { border: tall $panel; background: $panel 35%; }
-.-look-tide .source-row:focus-within { border: tall $primary; }
-.-look-tide #url, .-look-tide #file-input { background: $panel 0%; }
-.-look-tide #dialog { border: tall $primary; }
+.source-row { border: round $panel; }
+.source-row:focus-within { border: round $primary; }
+#dialog { border: round $primary; }
 
 MainScreen.-short #actions Button, MainScreen.-short #files-actions Button {
     height: 1; min-width: 10; border: none; padding: 0 2;

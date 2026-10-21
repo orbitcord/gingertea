@@ -43,8 +43,8 @@ KEY_LIST = (
     ("c", "convert", "screen.convert"),
     ("x", "cancel", "screen.cancel_download"),
     ("s", "settings", "screen.settings"),
+    ("l", "sites", "screen.sites"),
     ("{url}", "", ""),
-    ("v", "look", "app.cycle_look"),
     ("t", "themes", "app.change_theme"),
     ("q", "quit", "app.quit"),
 )
@@ -54,7 +54,6 @@ FILES_KEY_LIST = (
     ("r", "remove", "screen.remove_file"),
     ("x", "cancel", "screen.cancel_download"),
     ("{url}", "", ""),
-    ("v", "look", "app.cycle_look"),
     ("t", "themes", "app.change_theme"),
     ("q", "quit", "app.quit"),
 )
@@ -72,9 +71,7 @@ def key_bar(typing: bool, tab: str = DOWNLOAD_TAB, width: int = 120) -> str:
         for k, label, action in key_list
     ]
     if width < 100:
-        keep = {"d", "c", "x", "f", "s", "t", "q", "tab", "esc", "ctrl+t"}
-        if width >= 80:
-            keep.add("v")
+        keep = {"d", "c", "x", "f", "s", "l", "t", "q", "tab", "esc", "ctrl+t"}
         keys = [item for item in keys if item[0] in keep]
     # Lines are broken here, between whole items, so a key chip never parts from its label.
     room = max(width - 4, 1)
@@ -123,7 +120,6 @@ class MainScreen(Screen):
         Binding("l", "sites", "Sites"),
         Binding("s", "settings", "Settings"),
         Binding("t", "app.change_theme", "Themes"),
-        Binding("v", "app.cycle_look", "Look"),
         Binding("x", "cancel_download", "Cancel download"),
         Binding("o", "reveal", "Show file"),
         Binding("u", "update", "Update yt-dlp"),
@@ -203,7 +199,6 @@ class MainScreen(Screen):
         self.query_one("#logo", Static).update(
             logo.render(
                 width - 4,
-                self.app.look,
                 primary=rich_color(colors.get("primary"), "#d7af5f"),
                 secondary=rich_color(colors.get("secondary"), "#d7875f"),
                 muted=rich_color(colors.get(muted), "#6c6c6c"),

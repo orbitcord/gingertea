@@ -1,4 +1,4 @@
-"""The gingertea header, drawn entirely in terminal cells. Each look has its own."""
+"""The gingertea header, drawn entirely in terminal cells."""
 
 from rich.color import Color
 from rich.text import Text
@@ -27,18 +27,6 @@ SHADOW_GLYPHS = {
     "A": (" █████╗ ", "██╔══██╗", "███████║", "██╔══██║", "██║  ██║", "╚═╝  ╚═╝"),
 }
 SHADOW = tuple("".join(SHADOW_GLYPHS[letter][row] for letter in WORD) for row in range(6))
-
-# A steaming cup, twelve columns by six rows to stand beside SHADOW, for the tide look.
-CUP = (
-    "   )  )  )  ",
-    "  (  (  (   ",
-    " ╭────────╮ ",
-    " │▓▓▓▓▓▓▓▓├╮",
-    " │▓▓▓▓▓▓▓▓├╯",
-    " ╰────────╯ ",
-)
-CUP_STEAM_ROWS = 2
-
 
 def _rgb(color: str) -> tuple[int, int, int]:
     try:
@@ -132,30 +120,25 @@ def _plain(text: Text, width: int, color: str) -> Text:
 
 def render(
     width: int,
-    look: str,
     primary: str,
     secondary: str,
     muted: str,
     background: str = "#000000",
 ) -> Text:
-    """Draw the header for `look` in `width` cells, falling back to plain text in tiny terminals.
+    """Draw the header in `width` cells, falling back to plain text in tiny terminals.
 
     Accent colours too close to `background` are nudged until they read clearly."""
     out = Text(no_wrap=True, overflow="crop", justify="center")
     primary, secondary = _legible(primary, background), _legible(secondary, background)
     if width < len(WORD):
         return _plain(out, width, primary)
-    if look == "dusk":
-        return _slim(out, width, primary, secondary, muted)
-    if look == "tide":
-        return _cup(out, width, primary, secondary, muted, background)
     return _banner(out, width, primary, secondary, muted, background)
 
 
 def _banner(
     out: Text, width: int, primary: str, secondary: str, muted: str, background: str
 ) -> Text:
-    """Ginger: a 3D wordmark that lights up from the top."""
+    """A 3D wordmark, or flatter versions of it as the terminal narrows."""
     if width >= len(SHADOW[0]):
         _carve(out, SHADOW, primary, secondary, background)
     elif width >= len(BIG[0]) + 1:
@@ -166,7 +149,7 @@ def _banner(
 
 
 def _slim(out: Text, width: int, primary: str, secondary: str, muted: str) -> Text:
-    """Dusk: a spaced title between two rules that fade out, small enough for short terminals."""
+    """A spaced title between two rules that fade out, for terminals too narrow for block letters."""
     title = " ".join(WORD.lower())
     side = max(0, min(14, (width - len(title) - 4) // 2))
     if side:
@@ -176,19 +159,4 @@ def _slim(out: Text, width: int, primary: str, secondary: str, muted: str) -> Te
     if side:
         out.append("  ")
         _sweep(out, "━" * side, secondary, muted, bold=False)
-    return out
-
-
-def _cup(out: Text, width: int, primary: str, secondary: str, muted: str, background: str) -> Text:
-    """Tide: a steaming cup beside the 3D wordmark."""
-    gap = "   "
-    if width < len(CUP[0]) + len(gap) + len(SHADOW[0]):
-        return _banner(out, width, primary, secondary, muted, background)
-    for row, line in enumerate(SHADOW):
-        if row:
-            out.append("\n")
-        cup_style = muted if row < CUP_STEAM_ROWS else primary
-        out.append(CUP[row], cup_style)
-        out.append(gap)
-        _carve_line(out, line, row, len(SHADOW), primary, secondary, background)
     return out

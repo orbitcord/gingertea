@@ -41,7 +41,6 @@ class Settings:
     # Browser cookies stay off until the user opts in for a login-only video.
     cookies_browser: str = ""
     theme: str = "masala-chai"
-    look: str = "ginger"
 
     def __post_init__(self) -> None:
         if not self.download_dir:

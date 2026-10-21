@@ -27,7 +27,7 @@ class GingerTeaApp(App):
         for theme in THEMES:
             self.register_theme(theme)
         saved = self.settings.theme
-        self.theme = saved if saved in self.available_themes else "tea-house"
+        self.theme = saved if saved in self.available_themes else "gingertea"
         self.theme_changed_signal.subscribe(self, self._remember_theme)
 
     def _remember_theme(self, theme) -> None:

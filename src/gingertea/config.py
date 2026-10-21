@@ -40,7 +40,7 @@ class Settings:
     last_frames_quality: str = "1"
     # Browser cookies stay off until the user opts in for a login-only video.
     cookies_browser: str = ""
-    theme: str = "tea-house"
+    theme: str = "gingertea"
 
     def __post_init__(self) -> None:
         if not self.download_dir:

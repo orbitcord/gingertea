@@ -76,8 +76,9 @@ The footer also has clickable shortcuts.
 | `esc` | Focus the current input field |
 | `q` | Quit |
 
-The sidebar collapses in narrow terminals. The input, media actions, queue, and
-keyboard controls remain available.
+Download and Convert files use full-width tabs. The text wordmark and thumbnail
+collapse in compact terminals to keep the input, actions, and queue visible.
+The shortcut bar stays centered at the bottom.
 
 ### Download formats
 
@@ -115,12 +116,12 @@ visible with a note about the missing codec. Pillow plugins handle HEIC and JPEG
 
 ### Themes
 
-Tea House is the default light theme. Press `t` or click Change theme to choose
-Matcha, Earl Grey, Masala Chai, Hibiscus, the original gingertea dark and light
-palettes, or a built-in Textual theme. gingertea saves your choice.
+gingertea is the default dark theme with orange accents. Press `t` or click themes
+in the footer to choose Tea House, Matcha, Earl Grey, Masala Chai, Hibiscus,
+gingertea light, or a built-in Textual theme. gingertea saves your choice.
 
-The cup uses the selected icon asset, rendered with Unicode quadrant cells. It does
-not need Sixel or Kitty graphics support. Its colors follow the theme.
+The text wordmark uses terminal block characters and follows the selected theme.
+No image protocol is needed.
 
 ### Videos that require a login
 

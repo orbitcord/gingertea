@@ -290,20 +290,24 @@ async def test_status_line_shows_both_versions(fakes):
         assert text.index("gingertea") < text.index("yt-dlp")
 
 
-async def test_sidebar_switches_workflows_and_opens_settings(fakes):
+async def test_tabs_switch_workflows_and_shortcuts_open_settings(fakes):
     app = GingerTeaApp()
     async with app.run_test(size=(120, 38)) as pilot:
-        await pilot.click("#nav-files")
+        # Tab labels retain clickable Rich actions after removing sidebar navigation.
+        tabs = app.screen.query_one("#tabs")
+        await pilot.click("#tabs", offset=(20, 0))
         assert app.screen.tab == "files"
         assert app.focused.id == "file-input"
-        assert app.screen.query_one("#nav-files").has_class("-selected")
-        await pilot.click("#nav-download")
+        await pilot.click("#tabs", offset=(3, 0))
         assert app.screen.tab == "download"
         assert app.focused.id == "url"
-        await pilot.click("#nav-settings")
+        assert tabs.display
+        assert not app.screen.query("#sidebar, #cup")
+        app.screen.query_one("#url").blur()
+        await pilot.press("s")
         assert isinstance(app.screen, SettingsScreen)
         await pilot.press("escape")
-        await pilot.click("#nav-sites")
+        await pilot.press("l")
         from gingertea.screens.sites import SitesScreen
 
         assert isinstance(app.screen, SitesScreen)
@@ -323,7 +327,7 @@ async def test_compact_layout_keeps_download_and_queue_visible(fakes, size):
         assert download.region.bottom <= footer.region.y
         assert queue.region.height >= 3
         assert queue.region.bottom <= footer.region.y
-        assert not screen.query_one("#sidebar").display
+        assert not screen.query("#sidebar, #cup")
         await pilot.press("ctrl+t")
         assert screen.tab == "files"
         assert app.focused.id == "file-input"
@@ -332,12 +336,13 @@ async def test_compact_layout_keeps_download_and_queue_visible(fakes, size):
 async def test_tea_theme_selection_is_saved_and_restored(fakes):
     app = GingerTeaApp()
     async with app.run_test(size=(120, 38)) as pilot:
-        assert app.theme == "tea-house"
+        assert app.theme == "gingertea"
         app.theme = "hibiscus"
         await pilot.pause()
         assert config.load().theme == "hibiscus"
         main = app.screen
-        await pilot.click("#nav-theme")
+        main.query_one("#url").blur()
+        await pilot.press("t")
         assert app.screen is not main
         await pilot.press("escape")
     app = GingerTeaApp()

@@ -1,4 +1,4 @@
-"""The main screen: logo, URL bar, video card and download list."""
+"""The main screen: wordmark, tabs, URL bar, video and download queue."""
 
 from __future__ import annotations
 
@@ -42,12 +42,8 @@ KEY_LIST = (
     ("d", "download", "screen.download"),
     ("c", "convert", "screen.convert"),
     ("x", "cancel", "screen.cancel_download"),
-    ("l", "sites", "screen.sites"),
     ("s", "settings", "screen.settings"),
-    ("o", "open", "screen.reveal"),
-    ("u", "update", "screen.update"),
     ("{url}", "", ""),
-    ("ctrl+t", "files", "screen.switch_tab"),
     ("t", "themes", "app.change_theme"),
     ("q", "quit", "app.quit"),
 )
@@ -56,9 +52,7 @@ FILES_KEY_LIST = (
     ("f", "browse", "screen.browse"),
     ("r", "remove", "screen.remove_file"),
     ("x", "cancel", "screen.cancel_download"),
-    ("o", "open", "screen.reveal"),
     ("{url}", "", ""),
-    ("ctrl+t", "download", "screen.switch_tab"),
     ("t", "themes", "app.change_theme"),
     ("q", "quit", "app.quit"),
 )
@@ -144,54 +138,18 @@ class MainScreen(Screen):
         return self.app.settings
 
     def compose(self) -> ComposeResult:
-        from .. import __version__
-
-        yield Static("[b $primary]gingertea[/]", id="compact-brand")
-        with Horizontal(id="workspace"):
-            with Vertical(id="sidebar"):
-                with Horizontal(id="brand-lockup"):
-                    yield logo.TeaIcon(id="cup")
-                    with Vertical(id="brand-name"):
-                        yield Static(id="logo")
-                yield Static(f"v{__version__}", id="brand-version")
-                yield Static(id="theme-label")
-                yield Static("Download media.\nConvert files.", id="tagline")
-                yield Button(r"\[1] Download", id="nav-download", classes="nav-button -selected")
-                yield Button(r"\[2] Convert files", id="nav-files", classes="nav-button")
-                yield Button(r"\[3] Settings", id="nav-settings", classes="nav-button")
-                yield Button(r"\[4] Sites", id="nav-sites", classes="nav-button")
-                yield Static(id="sidebar-space")
-                yield Button(r"\[t] Change theme", id="nav-theme", classes="nav-button")
-            with Vertical(id="main-panel"):
-                with Horizontal(id="page-header"):
-                    yield Static("Download", id="page-title")
-                    yield Static(id="output-label")
-                yield Static(tab_bar(self.tab), id="tabs")
-                with ContentSwitcher(initial="pane-download", id="panes"):
-                    with Vertical(id="pane-download"):
-                        with Horizontal(id="url-row", classes="source-row"):
-                            yield Static("›", classes="prompt")
-                            yield Input(placeholder="Paste a video link", id="url")
-                        yield VideoCard(id="card")
-                        yield DownloadQueue(id="queue")
-                    yield FilesPane(id="pane-files")
+        yield Static(id="logo")
         yield Static(id="status-line")
+        yield Static(tab_bar(self.tab), id="tabs")
+        with ContentSwitcher(initial="pane-download", id="panes"):
+            with Vertical(id="pane-download"):
+                with Horizontal(id="url-row", classes="source-row"):
+                    yield Static("›", classes="prompt")
+                    yield Input(placeholder="Paste a video link", id="url")
+                yield VideoCard(id="card")
+                yield DownloadQueue(id="queue")
+            yield FilesPane(id="pane-files")
         yield Static(id="keys")
-
-    @on(Button.Pressed, ".nav-button")
-    def _navigate(self, event: Button.Pressed) -> None:
-        event.stop()
-        target = event.button.id
-        if target == "nav-download":
-            self.action_show_tab(DOWNLOAD_TAB)
-        elif target == "nav-files":
-            self.action_show_tab(FILES_TAB)
-        elif target == "nav-settings":
-            self.action_settings()
-        elif target == "nav-sites":
-            self.action_sites()
-        elif target == "nav-theme":
-            self.app.action_change_theme()
 
     def on_mount(self) -> None:
         self.query_one("#url-row").border_title = "URL"
@@ -214,6 +172,7 @@ class MainScreen(Screen):
 
     def on_resize(self, event: Resize) -> None:
         self._set_layout()
+        self._render_logo(event.size.width)
         self._render_keys()
 
     def _set_layout(self) -> None:
@@ -223,10 +182,13 @@ class MainScreen(Screen):
 
     def _render_logo(self, width: int) -> None:
         colors = self.app.theme_variables
-        primary = rich_color(colors.get("primary"), "#5f5f00")
-        self.query_one("#logo", Static).update(logo.render(18, primary))
-        self.query_one("#theme-label", Static).update(self.app.theme.replace("-", " ").title())
-        self.query_one("#cup").refresh()
+        steps = ("primary-lighten-1", "primary", "primary", "primary-darken-1", "primary-darken-2")
+        self.query_one("#logo", Static).update(
+            logo.render(
+                width - 4,
+                gradient=[rich_color(colors.get(step), "#ff8700") for step in steps],
+            )
+        )
 
     def on_descendant_focus(self) -> None:
         self._render_keys()
@@ -263,11 +225,6 @@ class MainScreen(Screen):
             where = escape(short_path(str(self.settings.download_path)))
             bits.append(f"[dim]saving to[/dim] {where}")
         self.query_one("#status-line", Static).update("  [dim]·[/dim]  ".join(bits))
-        self.query_one("#output-label", Static).update(
-            "Saves next to each original"
-            if self.tab == FILES_TAB
-            else f"Output: [b $secondary]{escape(short_path(str(self.settings.download_path)))}[/]"
-        )
 
     def _theme_changed(self, _theme) -> None:
         self._render_logo(self.size.width)
@@ -367,11 +324,6 @@ class MainScreen(Screen):
         self.tab = tab
         self.query_one("#panes", ContentSwitcher).current = f"pane-{tab}"
         self.query_one("#tabs", Static).update(tab_bar(tab))
-        self.query_one("#page-title", Static).update(
-            "Convert files" if tab == FILES_TAB else "Download"
-        )
-        self.query_one("#nav-download").set_class(tab == DOWNLOAD_TAB, "-selected")
-        self.query_one("#nav-files").set_class(tab == FILES_TAB, "-selected")
         self._render_status()
         self.action_focus_url()
 

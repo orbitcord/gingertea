@@ -90,7 +90,9 @@ async def test_convert_remembers_choice(fakes):
         await pilot.pause()
         dialog.query_one("#audio-format").highlighted = 3  # flac
         await pilot.pause()
-        assert [o.id for o in dialog.query_one("#audio-quality").options] == ["best"]
+        assert await settle(
+            pilot, lambda: [o.id for o in dialog.query_one("#audio-quality").options] == ["best"]
+        )
         await pilot.click("#go")
         assert await settle(pilot, lambda: screen.jobs and screen.jobs[0].state == runner.DONE)
         assert fakes["run"][0].fmt == "flac"

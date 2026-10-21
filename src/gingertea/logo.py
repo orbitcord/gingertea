@@ -28,6 +28,7 @@ SHADOW_GLYPHS = {
 }
 SHADOW = tuple("".join(SHADOW_GLYPHS[letter][row] for letter in WORD) for row in range(6))
 
+
 def _rgb(color: str) -> tuple[int, int, int]:
     try:
         triplet = Color.parse(color).get_truecolor()

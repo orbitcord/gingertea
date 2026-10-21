@@ -44,6 +44,7 @@ KEY_LIST = (
     ("x", "cancel", "screen.cancel_download"),
     ("s", "settings", "screen.settings"),
     ("{url}", "", ""),
+    ("v", "look", "app.cycle_look"),
     ("t", "themes", "app.change_theme"),
     ("q", "quit", "app.quit"),
 )
@@ -53,6 +54,7 @@ FILES_KEY_LIST = (
     ("r", "remove", "screen.remove_file"),
     ("x", "cancel", "screen.cancel_download"),
     ("{url}", "", ""),
+    ("v", "look", "app.cycle_look"),
     ("t", "themes", "app.change_theme"),
     ("q", "quit", "app.quit"),
 )
@@ -71,8 +73,21 @@ def key_bar(typing: bool, tab: str = DOWNLOAD_TAB, width: int = 120) -> str:
     ]
     if width < 100:
         keep = {"d", "c", "x", "f", "s", "t", "q", "tab", "esc", "ctrl+t"}
+        if width >= 80:
+            keep.add("v")
         keys = [item for item in keys if item[0] in keep]
-    return "  ".join(f"[b $primary]{k}[/] [@click={action}]{label}[/]" for k, label, action in keys)
+    # Lines are broken here, between whole items, so a key chip never parts from its label.
+    room = max(width - 4, 1)
+    lines: list[list[str]] = [[]]
+    used = 0
+    for k, label, action in keys:
+        cells = len(k) + 3 + len(label)
+        if lines[-1] and used + 3 + cells > room:
+            lines.append([])
+            used = 0
+        used += cells + (3 if lines[-1] else 0)
+        lines[-1].append(f"[b $primary on $panel] {k} [/] [@click={action}]{label}[/]")
+    return "\n".join("   ".join(line) for line in lines)
 
 
 def tab_bar(active: str) -> str:
@@ -108,6 +123,7 @@ class MainScreen(Screen):
         Binding("l", "sites", "Sites"),
         Binding("s", "settings", "Settings"),
         Binding("t", "app.change_theme", "Themes"),
+        Binding("v", "app.cycle_look", "Look"),
         Binding("x", "cancel_download", "Cancel download"),
         Binding("o", "reveal", "Show file"),
         Binding("u", "update", "Update yt-dlp"),
@@ -182,11 +198,13 @@ class MainScreen(Screen):
 
     def _render_logo(self, width: int) -> None:
         colors = self.app.theme_variables
-        steps = ("primary-lighten-1", "primary", "primary", "primary-darken-1", "primary-darken-2")
         self.query_one("#logo", Static).update(
             logo.render(
                 width - 4,
-                gradient=[rich_color(colors.get(step), "#ff8700") for step in steps],
+                self.app.look,
+                primary=rich_color(colors.get("primary"), "#d7af5f"),
+                secondary=rich_color(colors.get("secondary"), "#d7875f"),
+                muted=rich_color(colors.get("panel-lighten-2"), "#6c6c6c"),
             )
         )
 

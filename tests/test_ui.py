@@ -339,7 +339,7 @@ async def test_compact_layout_keeps_download_and_queue_visible(fakes, size):
 async def test_tea_theme_selection_is_saved_and_restored(fakes):
     app = GingerTeaApp()
     async with app.run_test(size=(120, 38)) as pilot:
-        assert app.theme == "gingertea"
+        assert app.theme == "masala-chai"
         app.theme = "hibiscus"
         await pilot.pause()
         assert config.load().theme == "hibiscus"

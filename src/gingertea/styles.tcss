@@ -143,46 +143,55 @@ VideoCard {
 
 #action-hint {
     width: auto;
+    height: 3;
+    margin-left: 2;
+    content-align: left middle;
     color: $text-muted;
 }
 
-/* Buttons use a solid primary action and an outlined secondary action. */
+/* Buttons: the border never changes, so hover and focus can't shift the layout.
+   Idle is an outline, hover warms the outline, focus fills, a press darkens. */
 
 Button, Button.-primary, Button.-success, Button.-default {
     width: auto;
-    min-width: 0;
+    min-width: 14;
     height: 3;
-    padding: 0 1;
-    border: solid $panel;
+    padding: 0 2;
+    margin: 0;
+    content-align: center middle;
+    border: round $panel;
     background: $background;
+    color: $foreground;
+    text-style: none;
+    tint: transparent;
+}
+Button:hover, Button.-primary:hover, Button.-success:hover, Button.-default:hover {
+    border: round $primary;
+    background: $panel 40%;
     color: $primary;
     text-style: bold;
 }
-
-Button:hover, Button.-primary:hover, Button.-success:hover, Button.-default:hover {
-    background: $panel;
-    border: none;
-}
-
 Button:focus, Button.-primary:focus, Button.-success:focus, Button.-default:focus {
+    border: round $primary;
     background: $primary;
     color: $background;
     text-style: bold;
 }
-
-Button.-active {
+Button.-active, Button.-active:hover, Button.-active:focus {
+    border: round $primary-darken-1;
     background: $primary-darken-1;
-    border: none;
-}
-
-#cancel {
-    color: $text-muted;
-}
-
-#cancel:focus {
-    background: $foreground-muted;
     color: $background;
 }
+Button:disabled {
+    border: round $panel;
+    background: $background;
+    color: $text-muted;
+    text-style: dim;
+}
+
+#cancel { color: $text-muted; }
+#cancel:hover { border: round $error; color: $error; }
+#cancel:focus { border: round $error; background: $error; color: $background; }
 
 #error-actions, #actions, #dialog-actions, #files-actions {
     height: auto;
@@ -191,11 +200,8 @@ Button.-active {
 #error-actions Button, #actions Button, #dialog-actions Button, #files-actions Button {
     margin-right: 2;
 }
-
-
-#actions Button {
-    margin-right: 2;
-}
+#error-actions Button:last-of-type, #actions Button:last-of-type,
+#dialog-actions Button:last-of-type, #files-actions Button:last-of-type { margin-right: 0; }
 
 /* ---------- download list ---------- */
 
@@ -290,12 +296,17 @@ JobRow.-failed BlockBar, JobRow.-cancelled BlockBar {
 }
 
 #download, #go, #save, #convert-files {
-    background: $primary; color: $background; border: solid $primary;
+    background: $primary; color: $background; border: round $primary; text-style: bold;
 }
-#download:hover, #go:hover, #save:hover, #convert-files:hover { background: $primary-darken-1; }
-#download:focus, #go:focus, #save:focus, #convert-files:focus { border: double $primary; }
+#download:hover, #go:hover, #save:hover, #convert-files:hover {
+    background: $primary-lighten-1; color: $background; border: round $primary-lighten-1;
+}
+#download:focus, #go:focus, #save:focus, #convert-files:focus {
+    background: $primary; color: $background; border: round $foreground;
+}
 #thumb { width: 34; height: 9; }
-.job-cancel { height: 1; border: none; padding: 0 1; }
+.job-cancel { height: 1; min-width: 0; border: none; padding: 0 1; }
+.job-cancel:hover { background: $panel; color: $error; }
 JobRow BlockBar { width: 24; }
 #video-meta { color: $text; }
 
@@ -541,3 +552,63 @@ MainScreen.-short #files-card { padding-top: 0; margin-top: 1; }
 MainScreen.-short #files { max-height: 5; }
 MainScreen.-short #files-actions Button { height: 1; border: none; }
 #error-hint { max-height: 5; overflow-y: auto; }
+
+/* ---------- looks: header art lives in logo.py, borders and weight live here ---------- */
+
+
+/* Ginger: soft rounded frames. */
+.-look-ginger .source-row { border: round $panel; }
+.-look-ginger .source-row:focus-within { border: round $primary; }
+.-look-ginger #dialog { border: round $primary; }
+
+/* Dusk: heavy rules and thick frames. */
+.-look-dusk .source-row { border: heavy $panel; }
+.-look-dusk .source-row:focus-within { border: heavy $primary; }
+.-look-dusk VideoCard, .-look-dusk DownloadQueue, .-look-dusk #files-card,
+.-look-dusk #keys, .-look-dusk #tabs { border-top: heavy $panel; }
+.-look-dusk #tabs { border-top: none; border-bottom: heavy $panel; }
+.-look-dusk #dialog { border: heavy $primary; }
+
+/* Tide: tall half-block frames with a filled look. */
+.-look-tide .source-row { border: tall $panel; background: $panel 35%; }
+.-look-tide .source-row:focus-within { border: tall $primary; }
+.-look-tide #url, .-look-tide #file-input { background: $panel 0%; }
+.-look-tide #dialog { border: tall $primary; }
+
+MainScreen.-short #actions Button, MainScreen.-short #files-actions Button {
+    height: 1; min-width: 10; border: none; padding: 0 2;
+}
+
+/* Action buttons are solid chips. A `block` border in the chip's own colour adds half a row
+   above and below the label, so they stand a little taller than one line without an outline.
+   The primary action is filled with the accent; the rest sit on a quiet panel. */
+#actions Button, #files-actions Button, #error-actions Button, #dialog-actions Button {
+    height: 3; min-width: 0; padding: 0 3; text-style: bold;
+    border: block $panel; background: $panel; color: $foreground;
+}
+#actions Button:hover, #files-actions Button:hover,
+#error-actions Button:hover, #dialog-actions Button:hover {
+    border: block $panel-lighten-1; background: $panel-lighten-1; color: $primary;
+}
+#actions Button:focus, #files-actions Button:focus,
+#error-actions Button:focus, #dialog-actions Button:focus {
+    border: block $primary; background: $primary; color: $background; text-style: bold underline;
+}
+#actions #download, #files-actions #convert-files, #dialog-actions #go, #dialog-actions #save {
+    border: block $primary; background: $primary; color: $background;
+}
+#actions #download:hover, #files-actions #convert-files:hover,
+#dialog-actions #go:hover, #dialog-actions #save:hover {
+    border: block $primary-lighten-1; background: $primary-lighten-1; color: $background;
+}
+#actions #download:focus, #files-actions #convert-files:focus,
+#dialog-actions #go:focus, #dialog-actions #save:focus {
+    border: block $primary-lighten-1; background: $primary-lighten-1; color: $background;
+    text-style: bold underline;
+}
+#dialog-actions #cancel:hover { color: $error; }
+#action-hint { height: 3; }
+MainScreen.-short #actions Button, MainScreen.-short #files-actions Button {
+    height: 1 !important; border: none !important;
+}
+MainScreen.-short #action-hint { height: 1; }

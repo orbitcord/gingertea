@@ -73,8 +73,8 @@ class FilesPane(Vertical):
             yield Static(id="files-status")
             yield OptionList(id="files")
             with Horizontal(id="files-actions"):
-                yield Button("\\[c] convert all", id="convert-files")
-                yield Button("\\[r] remove", id="remove-file")
+                yield Button("\\[c] Convert all", id="convert-files")
+                yield Button("\\[r] Remove", id="remove-file")
                 yield Static("saves next to each original", id="files-hint")
         yield DownloadQueue(
             title="Conversions",
@@ -179,7 +179,7 @@ class FilesPane(Vertical):
         files.display = bool(n)
         self.query_one("#files-actions").display = bool(n)
         button = self.query_one("#convert-files", Button)
-        label = "\\[c] convert all" if n > 1 else "\\[c] convert"
+        label = "\\[c] Convert all" if n > 1 else "\\[c] Convert"
         if str(button.label) != label.replace("\\", ""):
             button.label = label
             # An auto-width button keeps its old width after a label change; re-measure it.

@@ -107,7 +107,7 @@ async def test_drop_switches_tab_and_converts(files_fakes, tmp_path):
         dialog = app.screen
         tabs = [p.id for p in dialog.query("TabPane")]
         assert tabs == ["video", "audio", "frames"]
-        assert "convert" in str(dialog.query_one("#go").label)
+        assert "convert" in str(dialog.query_one("#go").label).lower()
         quality = dialog.query_one("#video-quality")
         assert str(quality.get_option_at_index(0).prompt) == "Same as original"
         summary = str(dialog.query_one("#summary").render())
@@ -130,8 +130,8 @@ async def test_mixed_batch_converts_only_matching_files(files_fakes, tmp_path):
         assert pane.query_one("#files-card").border_title == "3 files"
         await pilot.pause()
         button = pane.query_one("#convert-files")
-        assert str(button.label) == "[c] convert all"
-        assert button.size.width >= len("[c] convert all")  # re-measured after the change
+        assert str(button.label) == "[c] Convert all"
+        assert button.size.width >= len("[c] Convert all")  # re-measured after the change
         pane.convert()
         assert await settle(pilot, lambda: isinstance(app.screen, ConvertScreen))
         dialog = app.screen

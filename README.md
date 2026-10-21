@@ -116,7 +116,7 @@ visible with a note about the missing codec. Pillow plugins handle HEIC and JPEG
 
 ### Themes
 
-gingertea is the default dark theme with orange accents. Press `t` or click themes
+Masala Chai is the default dark theme, with warm spice-gold accents. Press `v` to switch between the Ginger, Dusk and Tide looks. Press `t` or click themes
 in the footer to choose Tea House, Matcha, Earl Grey, Masala Chai, Hibiscus,
 gingertea light, or a built-in Textual theme. gingertea saves your choice.
 

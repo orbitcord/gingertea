@@ -30,9 +30,9 @@ class VideoCard(Vertical):
                 yield Static(id="error-message")
                 yield Static(id="error-hint")
                 with Horizontal(id="error-actions"):
-                    yield Button("use browser cookies", id="use-cookies", variant="primary")
-                    yield Button("update yt-dlp", id="update-ytdlp", variant="primary")
-                    yield Button("try again", id="retry")
+                    yield Button("Use browser cookies", id="use-cookies", variant="primary")
+                    yield Button("Update yt-dlp", id="update-ytdlp", variant="primary")
+                    yield Button("Try again", id="retry")
             with Horizontal(id="card-info"):
                 yield Thumbnail(id="thumb")
                 with Vertical(id="details"):

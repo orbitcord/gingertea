@@ -16,6 +16,21 @@ TEA_HOUSE = Theme(
     panel="#d7d7d7",
     dark=False,
 )
+# Tea House after dark: the same olive and amber, lifted to read on a warm charcoal.
+TEA_HOUSE_DARK = Theme(
+    name="tea-house-dark",
+    primary="#afaf5f",
+    secondary="#d7af5f",
+    accent="#afaf5f",
+    warning="#d7af5f",
+    error="#ff8787",
+    success="#87af5f",
+    foreground="#e4e4d7",
+    background="#1c1c17",
+    surface="#1c1c17",
+    panel="#3a3a2c",
+    dark=True,
+)
 MATCHA = Theme(
     name="matcha",
     primary="#afd787",
@@ -52,10 +67,10 @@ MASALA_CHAI = Theme(
     warning="#ffd787",
     error="#ff8787",
     success="#87af87",
-    foreground="#e4dfd7",
-    background="#26201c",
-    surface="#26201c",
-    panel="#44382c",
+    foreground="#e4e4e4",
+    background="#121212",
+    surface="#121212",
+    panel="#303030",
     dark=True,
 )
 HIBISCUS = Theme(
@@ -100,5 +115,51 @@ GINGERTEA_LIGHT = Theme(
     panel="#d0d0d0",
     dark=False,
 )
+DUSK = Theme(
+    name="dusk",
+    primary="#af87ff",
+    secondary="#ff87d7",
+    accent="#d7afff",
+    warning="#ffd787",
+    error="#ff5f87",
+    success="#87d7af",
+    foreground="#e8e4f0",
+    background="#16131f",
+    surface="#16131f",
+    panel="#352e4d",
+    dark=True,
+)
+TIDE = Theme(
+    name="tide",
+    primary="#5fafff",
+    secondary="#87d7ff",
+    accent="#5fd7d7",
+    warning="#ffd787",
+    error="#ff5f87",
+    success="#87d7af",
+    foreground="#e1e9f2",
+    background="#0e1620",
+    surface="#0e1620",
+    panel="#263a52",
+    dark=True,
+)
 
-THEMES = (TEA_HOUSE, MATCHA, EARL_GREY, MASALA_CHAI, HIBISCUS, GINGERTEA_DARK, GINGERTEA_LIGHT)
+THEMES = (
+    GINGERTEA_DARK,
+    GINGERTEA_LIGHT,
+    DUSK,
+    TIDE,
+    TEA_HOUSE,
+    TEA_HOUSE_DARK,
+    MATCHA,
+    EARL_GREY,
+    MASALA_CHAI,
+    HIBISCUS,
+)
+
+# Each look pairs a header, a border style and a theme. `v` cycles through them.
+LOOKS = {
+    "ginger": "masala-chai",
+    "dusk": "dusk",
+    "tide": "tide",
+}

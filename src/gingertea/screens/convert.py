@@ -155,8 +155,8 @@ class ConvertScreen(ModalScreen[Choice | None]):
                                 yield OptionList(id=f"{kind}-quality")
             yield Static(id="summary")
             with Horizontal(id="dialog-actions"):
-                yield Button(opts.action, id="go", variant="primary")
-                yield Button("cancel", id="cancel")
+                yield Button(opts.action.capitalize(), id="go", variant="primary")
+                yield Button("Cancel", id="cancel")
 
     def on_mount(self) -> None:
         for kind in self.options.kinds:

@@ -55,6 +55,23 @@ def blend(start: str, end: str, t: float) -> str:
     return "#{:02x}{:02x}{:02x}".format(*mixed)
 
 
+def _luminance(color: str) -> float:
+    r, g, b = _rgb(color)
+    return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
+
+
+def _legible(color: str, background: str) -> str:
+    """`color`, nudged toward white on dark backgrounds or black on light ones until it stands out."""
+    dark = _luminance(background) < 0.5
+    toward = "#ffffff" if dark else "#000000"
+    for step in range(9):
+        candidate = blend(color, toward, step / 10)
+        lum = _luminance(candidate)
+        if (dark and lum >= 0.45) or (not dark and lum <= 0.45):
+            return candidate
+    return blend(color, toward, 0.8)
+
+
 def _sweep(text: Text, line: str, start: str, end: str, bold: bool = True) -> None:
     """Append `line` with its colour moving from `start` to `end` across the width."""
     last = max(len(line) - 1, 1)
@@ -76,27 +93,36 @@ def _extrude(lines: tuple[str, ...]) -> tuple[str, ...]:
     )
 
 
-def _carve(text: Text, lines: tuple[str, ...], primary: str, secondary: str) -> None:
-    """Paint letters as lit faces over darker edges, so the word stands off the screen."""
+def _carve(
+    text: Text, lines: tuple[str, ...], primary: str, secondary: str, background: str
+) -> None:
+    """Paint letters as lit faces over recessed edges, so the word stands off the screen."""
     for row, line in enumerate(lines):
         if row:
             text.append("\n")
-        _carve_line(text, line, row, len(lines), primary, secondary)
+        _carve_line(text, line, row, len(lines), primary, secondary, background)
 
 
-def _carve_line(text: Text, line: str, row: int, rows: int, primary: str, secondary: str) -> None:
-    """One row of `_carve`. Faces sweep from `primary` to `secondary` and catch light at the
-    top; anything that is not a full block is the shadow side, a deep shade of the face."""
+def _carve_line(
+    text: Text, line: str, row: int, rows: int, primary: str, secondary: str, background: str
+) -> None:
+    """One row of `_carve`. Faces sweep from `primary` to `secondary`. On a dark background they
+    catch a little light at the top; on a light one they deepen toward the bottom. Anything that
+    is not a full block is the side of the letter, the face colour sinking into the background."""
     last_col = max(len(line) - 1, 1)
-    shine = 0.45 * max(0.0, 1 - row / max(rows - 2, 1))
+    dark = _luminance(background) < 0.5
+    if dark:
+        tint, amount = "#ffffff", 0.22 * max(0.0, 1 - row / max(rows - 2, 1))
+    else:
+        tint, amount = "#000000", 0.2 * row / max(rows - 1, 1)
     for col, char in enumerate(line):
         base = blend(primary, secondary, col / last_col)
         if char == "█":
-            text.append(char, f"bold {blend(base, '#ffffff', shine)}")
+            text.append(char, f"bold {blend(base, tint, amount)}")
         elif char == " ":
             text.append(char)
         else:
-            text.append(char, blend(base, "#000000", 0.55))
+            text.append(char, blend(base, background, 0.6))
 
 
 def _plain(text: Text, width: int, color: str) -> Text:
@@ -104,24 +130,36 @@ def _plain(text: Text, width: int, color: str) -> Text:
     return text
 
 
-def render(width: int, look: str, primary: str, secondary: str, muted: str) -> Text:
-    """Draw the header for `look` in `width` cells, falling back to plain text in tiny terminals."""
+def render(
+    width: int,
+    look: str,
+    primary: str,
+    secondary: str,
+    muted: str,
+    background: str = "#000000",
+) -> Text:
+    """Draw the header for `look` in `width` cells, falling back to plain text in tiny terminals.
+
+    Accent colours too close to `background` are nudged until they read clearly."""
     out = Text(no_wrap=True, overflow="crop", justify="center")
+    primary, secondary = _legible(primary, background), _legible(secondary, background)
     if width < len(WORD):
         return _plain(out, width, primary)
     if look == "dusk":
         return _slim(out, width, primary, secondary, muted)
     if look == "tide":
-        return _cup(out, width, primary, secondary, muted)
-    return _banner(out, width, primary, secondary, muted)
+        return _cup(out, width, primary, secondary, muted, background)
+    return _banner(out, width, primary, secondary, muted, background)
 
 
-def _banner(out: Text, width: int, primary: str, secondary: str, muted: str) -> Text:
+def _banner(
+    out: Text, width: int, primary: str, secondary: str, muted: str, background: str
+) -> Text:
     """Ginger: a 3D wordmark that lights up from the top."""
     if width >= len(SHADOW[0]):
-        _carve(out, SHADOW, primary, secondary)
+        _carve(out, SHADOW, primary, secondary, background)
     elif width >= len(BIG[0]) + 1:
-        _carve(out, _extrude(BIG), primary, secondary)
+        _carve(out, _extrude(BIG), primary, secondary, background)
     else:
         return _slim(out, width, primary, secondary, muted)
     return out
@@ -141,16 +179,16 @@ def _slim(out: Text, width: int, primary: str, secondary: str, muted: str) -> Te
     return out
 
 
-def _cup(out: Text, width: int, primary: str, secondary: str, muted: str) -> Text:
+def _cup(out: Text, width: int, primary: str, secondary: str, muted: str, background: str) -> Text:
     """Tide: a steaming cup beside the 3D wordmark."""
     gap = "   "
     if width < len(CUP[0]) + len(gap) + len(SHADOW[0]):
-        return _banner(out, width, primary, secondary, muted)
+        return _banner(out, width, primary, secondary, muted, background)
     for row, line in enumerate(SHADOW):
         if row:
             out.append("\n")
         cup_style = muted if row < CUP_STEAM_ROWS else primary
         out.append(CUP[row], cup_style)
         out.append(gap)
-        _carve_line(out, line, row, len(SHADOW), primary, secondary)
+        _carve_line(out, line, row, len(SHADOW), primary, secondary, background)
     return out

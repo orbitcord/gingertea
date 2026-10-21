@@ -86,7 +86,7 @@ def key_bar(typing: bool, tab: str = DOWNLOAD_TAB, width: int = 120) -> str:
             lines.append([])
             used = 0
         used += cells + (3 if lines[-1] else 0)
-        lines[-1].append(f"[b $primary on $panel] {k} [/] [@click={action}]{label}[/]")
+        lines[-1].append(f"[b $text-primary on $panel] {k} [/] [@click={action}]{label}[/]")
     return "\n".join("   ".join(line) for line in lines)
 
 
@@ -94,7 +94,7 @@ def tab_bar(active: str) -> str:
     bits = []
     for tab, label in TABS:
         if tab == active:
-            bits.append(f"[b $background on $primary] {label} [/]")
+            bits.append(f"[b auto 90% on $primary] {label} [/]")
         else:
             bits.append(f"[@click=screen.show_tab('{tab}')] {label} [/]")
     return "  ".join(bits)
@@ -198,13 +198,16 @@ class MainScreen(Screen):
 
     def _render_logo(self, width: int) -> None:
         colors = self.app.theme_variables
+        # Muted marks sit a step away from the panel colour, toward the text.
+        muted = "panel-lighten-2" if self.app.current_theme.dark else "panel-darken-2"
         self.query_one("#logo", Static).update(
             logo.render(
                 width - 4,
                 self.app.look,
                 primary=rich_color(colors.get("primary"), "#d7af5f"),
                 secondary=rich_color(colors.get("secondary"), "#d7875f"),
-                muted=rich_color(colors.get("panel-lighten-2"), "#6c6c6c"),
+                muted=rich_color(colors.get(muted), "#6c6c6c"),
+                background=rich_color(colors.get("background"), "#121212"),
             )
         )
 
@@ -226,9 +229,7 @@ class MainScreen(Screen):
 
         bits = [f"[dim]gingertea[/dim] {__version__}"]
         if self.app.pending_app_update:
-            bits.append(
-                f"[b $primary]gingertea {self.app.pending_app_update} installs when you quit[/]"
-            )
+            bits.append(f"[b $primary]v{self.app.pending_app_update} on restart[/]")
         if self.update_version:
             bits.append(f"[b $warning]yt-dlp {self.update_version} available · press u[/]")
         else:

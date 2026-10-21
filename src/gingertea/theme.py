@@ -163,3 +163,7 @@ LOOKS = {
     "dusk": "dusk",
     "tide": "tide",
 }
+
+# Textual's ANSI themes name terminal palette slots instead of colours, so the header can't
+# blend them and panels lose their fill. They are left out of the theme picker.
+HIDDEN_THEMES = ("ansi-dark", "ansi-light")

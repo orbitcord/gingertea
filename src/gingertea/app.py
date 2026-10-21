@@ -8,7 +8,7 @@ from textual.app import App
 
 from . import config
 from .screens.main import MainScreen
-from .theme import LOOKS, THEMES
+from .theme import HIDDEN_THEMES, LOOKS, THEMES
 
 
 class GingerTeaApp(App):
@@ -27,6 +27,9 @@ class GingerTeaApp(App):
     def on_mount(self) -> None:
         for theme in THEMES:
             self.register_theme(theme)
+        for name in HIDDEN_THEMES:
+            if name in self.available_themes:
+                self.unregister_theme(name)
         saved = self.settings.theme
         self.theme = saved if saved in self.available_themes else "masala-chai"
         self.look = self.settings.look if self.settings.look in LOOKS else "ginger"

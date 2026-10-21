@@ -1,6 +1,6 @@
 [project]
 name = "gingertea"
-version = "0.1.2"
+version = "0.1.3"
 description = "Download and convert videos from YouTube and 1,300+ other sites in your terminal. Runs on yt-dlp."
 readme = "README.md"
 license = "MIT"

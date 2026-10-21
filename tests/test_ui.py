@@ -156,9 +156,10 @@ async def test_logo_fits(fakes, width):
 
 
 def all_theme_names():
-    from gingertea.theme import THEMES
+    from gingertea.theme import HIDDEN_THEMES, THEMES
 
-    return sorted(set(GingerTeaApp().available_themes) | {t.name for t in THEMES})
+    names = set(GingerTeaApp().available_themes) | {t.name for t in THEMES}
+    return sorted(names - set(HIDDEN_THEMES))
 
 
 @pytest.mark.parametrize("theme", all_theme_names())

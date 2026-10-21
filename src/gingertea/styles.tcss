@@ -1,0 +1,585 @@
+/* Sidebar navigation and a single workspace. Dimensions use terminal cells. */
+Screen { background: $background; }
+#workspace { height: 1fr; }
+#sidebar {
+    width: 24;
+    padding: 1 1;
+    border-right: solid $panel;
+    background: $background;
+}
+#brand-lockup { height: 4; margin: 0 0 0 1; }
+#cup { width: 8; height: 4; margin-right: 1; }
+#brand-name { width: 1fr; height: auto; margin-top: 1; }
+#logo { height: 1; color: $primary; }
+#brand-version { height: 1; color: $text-muted; margin: 0 1; }
+#theme-label { height: 1; color: $secondary; text-style: bold; margin: 0 1; }
+#tagline {
+    height: 3;
+    margin: 0 1 1 1;
+    padding-top: 1;
+    border-top: solid $panel;
+    color: $text-muted;
+}
+#sidebar-space { height: 1fr; }
+#sidebar .nav-button {
+    width: 100%; height: 2; padding: 0 1; border: none;
+    color: $text; background: $background; text-style: none;
+    content-align: left middle; text-align: left;
+}
+#sidebar .nav-button.-selected {
+    color: $background; background: $primary; text-style: bold;
+}
+#sidebar .nav-button:hover { background: $panel; color: $text; }
+#sidebar .nav-button:focus { background: $primary; color: $background; text-style: bold; }
+#main-panel { width: 1fr; padding: 1 2 0 2; }
+#page-header { height: 3; border-bottom: solid $panel; }
+#page-title { width: 1fr; height: 1; color: $primary; text-style: bold; }
+#output-label {
+    width: 2fr; height: 1; text-align: right; color: $text-muted;
+    text-wrap: nowrap; text-overflow: ellipsis;
+}
+#compact-brand { display: none; height: 1; margin: 1 0 0 0; }
+#tabs {
+    display: none; height: 1; margin: 1 0;
+    link-style: none; link-color: $text-muted;
+    link-background: $background; link-color-hover: $primary;
+}
+#panes, #pane-download, FilesPane { height: 1fr; }
+.source-row {
+    height: 3; margin: 1 0 0 0; border: solid $panel;
+    border-title-color: $text-muted; border-title-style: bold;
+}
+.source-row:focus-within { border: solid $primary; border-title-color: $primary; }
+.prompt { width: 2; padding-left: 1; color: $primary; text-style: bold; }
+#url, #file-input {
+    width: 1fr; height: 1; border: none; padding: 0 1; background: $background;
+}
+#url:focus, #file-input:focus { border: none; }
+Input:focus { background-tint: $foreground 0%; }
+MainScreen.-narrow #sidebar { display: none; }
+MainScreen.-narrow #compact-brand, MainScreen.-narrow #tabs { display: block; }
+MainScreen.-narrow #thumb { display: none; }
+MainScreen.-compact #action-hint, MainScreen.-compact #files-hint { display: none; }
+MainScreen.-short #tagline, MainScreen.-short #theme-label, MainScreen.-short #nav-theme { display: none; }
+MainScreen.-short #sidebar .nav-button { height: 2; }
+MainScreen.-short #page-header { height: 2; }
+MainScreen.-short #video-title { margin-bottom: 0; }
+MainScreen.-short #video-meta { margin-bottom: 0; }
+MainScreen.-short VideoCard { margin-top: 1; padding-top: 0; }
+MainScreen.-short #thumb { display: none; }
+MainScreen.-short #actions Button { height: 1; border: none; }
+MainScreen.-short #tabs { margin: 0; }
+
+/* ---------- section rules ---------- */
+
+VideoCard, DownloadQueue, #files-card {
+    margin: 1 0 0 0;
+    padding: 1 0 0 0;
+    border: none;
+    border-top: solid $panel;
+    border-title-align: left;
+    border-title-style: bold;
+    background: $background;
+}
+
+/* ---------- video card ---------- */
+
+VideoCard {
+    height: auto;
+    border-title-color: $primary;
+}
+
+#files-card {
+    height: auto;
+    max-height: 50%;
+    border-title-color: $primary;
+}
+
+#files-empty, #files-status {
+    height: auto;
+    color: $text-muted;
+}
+
+#files {
+    height: auto;
+    max-height: 12;
+    border: none;
+    padding: 0;
+    background: $background;
+    margin-bottom: 1;
+}
+
+#files:focus {
+    border: none;
+    background-tint: $foreground 0%;
+}
+
+#files-hint {
+    width: auto;
+    color: $text-muted;
+}
+
+#card-switcher {
+    height: auto;
+}
+
+#card-empty {
+    height: auto;
+    color: $text-muted;
+}
+
+#card-loading {
+    height: 1;
+}
+
+#card-loading LoadingIndicator {
+    width: 8;
+    height: 1;
+    color: $primary;
+}
+
+#loading-text {
+    width: auto;
+    color: $text-muted;
+}
+
+#card-error {
+    height: auto;
+}
+
+#error-hint {
+    margin: 1 0;
+    color: $text-muted;
+}
+
+#card-info {
+    height: auto;
+}
+
+#thumb {
+    margin-right: 3;
+}
+
+#details {
+    height: auto;
+    width: 1fr;
+}
+
+#video-title {
+    color: $text;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+#video-meta {
+    margin-bottom: 1;
+}
+
+#action-hint {
+    width: auto;
+    color: $text-muted;
+}
+
+/* Buttons use a solid primary action and an outlined secondary action. */
+
+Button, Button.-primary, Button.-success, Button.-default {
+    width: auto;
+    min-width: 0;
+    height: 3;
+    padding: 0 1;
+    border: solid $panel;
+    background: $background;
+    color: $primary;
+    text-style: bold;
+}
+
+Button:hover, Button.-primary:hover, Button.-success:hover, Button.-default:hover {
+    background: $panel;
+    border: none;
+}
+
+Button:focus, Button.-primary:focus, Button.-success:focus, Button.-default:focus {
+    background: $primary;
+    color: $background;
+    text-style: bold;
+}
+
+Button.-active {
+    background: $primary-darken-1;
+    border: none;
+}
+
+#cancel {
+    color: $text-muted;
+}
+
+#cancel:focus {
+    background: $foreground-muted;
+    color: $background;
+}
+
+#error-actions, #actions, #dialog-actions, #files-actions {
+    height: auto;
+}
+
+#error-actions Button, #actions Button, #dialog-actions Button, #files-actions Button {
+    margin-right: 2;
+}
+
+
+#actions Button {
+    margin-right: 2;
+}
+
+/* ---------- download list ---------- */
+
+DownloadQueue {
+    height: 1fr;
+    min-height: 5;
+    border-title-color: $primary;
+    scrollbar-size-vertical: 1;
+}
+
+.queue-empty {
+    color: $text-muted;
+}
+
+JobRow {
+    padding: 0 0 1 0;
+}
+
+.job-head {
+    height: 1;
+}
+
+.job-mark {
+    width: 2;
+    color: $text-muted;
+    text-style: bold;
+}
+
+JobRow.-running .job-mark {
+    color: $primary;
+}
+
+JobRow.-done .job-mark {
+    color: $success;
+}
+
+JobRow.-failed .job-mark {
+    color: $error;
+}
+
+.job-title {
+    width: 1fr;
+    text-style: bold;
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
+}
+
+.job-kind {
+    width: auto;
+    color: $primary;
+    margin-left: 2;
+}
+
+.job-cancel {
+    margin-left: 2;
+    color: $text-muted;
+}
+
+JobRow .job-cancel:focus {
+    background: $error;
+    color: $background;
+}
+
+.job-body {
+    height: 1;
+    padding-left: 2;
+}
+
+JobRow BlockBar {
+    width: 30;
+    color: $primary;
+}
+
+JobRow BlockBar > .block-bar--track {
+    color: $panel;
+}
+
+JobRow.-done BlockBar {
+    color: $success;
+}
+
+JobRow.-failed BlockBar, JobRow.-cancelled BlockBar {
+    color: $panel;
+}
+
+.job-status {
+    margin-left: 2;
+    width: 1fr;
+    color: $text-muted;
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
+}
+
+#download, #go, #save, #convert-files {
+    background: $primary; color: $background; border: solid $primary;
+}
+#download:hover, #go:hover, #save:hover, #convert-files:hover { background: $primary-darken-1; }
+#download:focus, #go:focus, #save:focus, #convert-files:focus { border: double $primary; }
+#thumb { width: 26; height: 8; }
+#status-line {
+    height: 1; padding: 0 2; color: $text-muted; text-wrap: nowrap; text-overflow: ellipsis;
+}
+.job-cancel { height: 1; border: none; padding: 0 1; }
+JobRow { border-left: solid $panel; padding: 0 1 1 1; margin-bottom: 1; }
+JobRow.-running { border-left: solid $primary; }
+JobRow.-done { border-left: solid $success; }
+JobRow BlockBar { width: 24; }
+#video-meta { color: $text; }
+
+/* ---------- key bar ---------- */
+
+#keys {
+    dock: bottom;
+    height: auto;
+    min-height: 2;
+    max-height: 4;
+    padding: 0 2;
+    border-top: solid $panel;
+    background: $background;
+    text-wrap: wrap;
+    link-style: none;
+    link-color: $text-muted;
+    link-background: $background;
+    link-style-hover: bold;
+    link-color-hover: $primary;
+    link-background-hover: $panel;
+}
+
+/* ---------- dialogs ---------- */
+
+ModalScreen {
+    align: center middle;
+    background: $background 70%;
+}
+
+#dialog {
+    width: 76;
+    max-width: 95%;
+    height: auto;
+    max-height: 95%;
+    padding: 1 2;
+    overflow-y: auto;
+    border: solid $primary;
+    background: $background;
+}
+
+#dialog.cookies {
+    width: 60;
+}
+
+#dialog.picker-dialog {
+    width: 80;
+    height: 32;
+}
+
+#tree {
+    height: 1fr;
+    background: $background;
+}
+
+#dialog.sites {
+    width: 64;
+    height: 30;
+}
+
+#site-search {
+    border: solid $panel;
+    background: $background;
+}
+
+#site-search:focus {
+    border: solid $primary;
+}
+
+#site-result {
+    height: 1;
+    margin: 1 0;
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
+}
+
+#sites {
+    height: 1fr;
+}
+
+#dialog-title {
+    margin-bottom: 1;
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
+}
+
+#dialog-actions {
+    margin-top: 1;
+}
+
+#kind {
+    height: auto;
+}
+
+.pickers {
+    height: auto;
+    padding-top: 1;
+}
+
+.picker {
+    width: 1fr;
+    height: auto;
+}
+
+.picker:first-of-type {
+    margin-right: 2;
+}
+
+.picker-label, .field-label {
+    color: $text-muted;
+    margin-bottom: 0;
+}
+
+.field-label {
+    margin-top: 1;
+}
+
+.picker OptionList {
+    height: 10;
+}
+
+#summary {
+    margin: 1 0 0 0;
+}
+
+#folder-row {
+    height: auto;
+}
+
+#folder {
+    width: 1fr;
+    border: solid $panel;
+    background: $background;
+}
+
+#folder:focus {
+    border: solid $primary;
+}
+
+#browse {
+    margin: 1 0 0 1;
+}
+
+#tree {
+    height: 12;
+    border: solid $panel;
+    background: $background;
+}
+
+#folder-error {
+    height: auto;
+}
+
+#cookies {
+    width: 40;
+}
+
+#cookies-note {
+    margin: 1 0;
+}
+
+#browsers {
+    height: auto;
+    max-height: 10;
+    margin: 1 0;
+    border: solid $panel;
+    background: $background;
+}
+
+/* ---------- lists, tabs, selects: grey at rest, one solid accent chip on focus ---------- */
+
+OptionList {
+    border: solid $panel;
+    background: $background;
+    scrollbar-size-vertical: 1;
+    scrollbar-background: $background;
+    scrollbar-background-hover: $background;
+    scrollbar-background-active: $background;
+    scrollbar-color: $panel;
+    scrollbar-color-hover: $primary;
+    scrollbar-color-active: $primary;
+    scrollbar-corner-color: $background;
+}
+
+OptionList:focus {
+    border: solid $primary;
+    background-tint: $foreground 0%;
+}
+
+OptionList > .option-list--option-highlighted {
+    color: $foreground;
+    background: $panel;
+    text-style: bold;
+}
+
+OptionList:focus > .option-list--option-highlighted {
+    color: $background;
+    background: $primary;
+    text-style: bold;
+}
+
+OptionList > .option-list--option-hover {
+    background: $panel;
+}
+
+Tabs Tab {
+    color: $text-muted;
+    background: $background;
+}
+
+Tabs Tab.-active {
+    color: $primary;
+    text-style: bold;
+}
+
+Tabs:focus Tab.-active {
+    color: $background;
+    background: $primary;
+}
+
+Tabs Underline > .underline--bar {
+    color: $primary;
+    background: $panel;
+}
+
+Select > SelectCurrent {
+    border: solid $panel;
+    background: $background;
+}
+
+Select:focus > SelectCurrent {
+    border: solid $primary;
+    background-tint: $foreground 0%;
+}
+
+Select > SelectOverlay {
+    border: solid $primary;
+}
+
+/* A compact terminal keeps the input, media actions and queue in view. */
+MainScreen.-narrow.-short #page-header { display: none; }
+MainScreen.-narrow.-short #main-panel { padding: 0 1; }
+MainScreen.-narrow.-short #compact-brand { margin: 0 1; }
+MainScreen.-short DownloadQueue { min-height: 3; padding-top: 0; }
+MainScreen.-short #files-card { padding-top: 0; margin-top: 1; }
+MainScreen.-short #files { max-height: 5; }
+MainScreen.-short #files-actions Button { height: 1; border: none; }
+#error-hint { max-height: 5; overflow-y: auto; }

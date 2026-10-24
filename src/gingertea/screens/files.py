@@ -61,6 +61,7 @@ class FilesPane(Vertical):
         self.files: list[FileInfo] = []
         self.jobs: list[Job] = []
         self.running: Job | None = None
+        self.paused = False
         self.last_file: str | None = None
         self.reading = 0
 
@@ -277,12 +278,18 @@ class FilesPane(Vertical):
                 bits.append("Fast copy, no quality lost.")
             elif any(fast):
                 bits.append("Some files copy fast, others re-encode.")
+            elif choice.kind == "image":
+                bits.append("Rewrites the picture.")
             else:
                 bits.append("Re-encodes, which can take a while.")
             return " ".join(bits)
 
         folders = {f.path.parent for f in files}
-        where = short_path(str(folders.pop())) if len(folders) == 1 else "next to each original"
+        where = (
+            "next to the original"
+            if len(files) == 1
+            else (short_path(str(folders.pop())) if len(folders) == 1 else "next to each original")
+        )
         title = files[0].path.name if len(files) == 1 else f"{len(files)} files"
         return ConvertOptions(
             title=title,
@@ -342,13 +349,20 @@ class FilesPane(Vertical):
         self.query_one(DownloadQueue).refresh_job(job)
         self._pump()
 
+    def toggle_pause(self) -> None:
+        self.paused = not self.paused
+        self.notify("Conversions paused" if self.paused else "Conversions resumed")
+        self._pump()
+
     def _pump(self) -> None:
         waiting = [j for j in self.jobs if j.state == runner.QUEUED]
-        if self.running is None and waiting:
+        if not self.paused and self.running is None and waiting:
             self.running = waiting.pop(0)
             self.running.state = runner.PREPARING
             self._run_job(self.running)
-        self.query_one(DownloadQueue).update_title(1 if self.running else 0, len(waiting))
+        self.query_one(DownloadQueue).update_title(
+            1 if self.running else 0, len(waiting), self.paused
+        )
 
     @work(thread=True, group="conversions")
     def _run_job(self, job: Job) -> None:

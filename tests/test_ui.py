@@ -63,6 +63,67 @@ async def settle(pilot, pred, timeout=5.0):
     return False
 
 
+def playlist(url="https://www.youtube.com/playlist?list=PL1"):
+    from gingertea.engine.probe import Entry
+
+    info = fake_info(url)
+    info.title = "Kyoto walks"
+    info.entries = (
+        Entry("https://www.youtube.com/watch?v=a", "a", "One", 10, "Tester", "Youtube"),
+        Entry("https://www.youtube.com/watch?v=b", "b", "Two", 20, "Tester", "Youtube"),
+        Entry("https://www.youtube.com/watch?v=c", "c", "Three", 30, "Tester", "Youtube"),
+    )
+    return info
+
+
+async def test_playlist_card_downloads_every_video(fakes, monkeypatch):
+    info = playlist()
+    monkeypatch.setattr(main_screen, "probe", lambda url, cookies_browser="": info)
+    app = GingerTeaApp()
+    async with app.run_test(size=(110, 42)) as pilot:
+        screen = app.screen
+        screen.load(info.url)
+        assert await settle(pilot, lambda: screen.info is not None and screen.info.is_playlist)
+        meta = str(screen.query_one("#video-meta").render())
+        assert "3" in meta and "Kyoto walks/" in meta
+        assert screen.query_one("#choose").display
+        await pilot.press("d")
+        assert await settle(
+            pilot, lambda: len(screen.jobs) == 3 and screen.jobs[-1].state == runner.DONE
+        )
+        assert [job.folder for job in screen.jobs] == ["Kyoto walks"] * 3
+
+
+async def test_playlist_choose_keeps_the_first_n(fakes, monkeypatch):
+    from gingertea.screens.playlist import PlaylistScreen
+
+    info = playlist("https://www.youtube.com/playlist?list=PL2")
+    monkeypatch.setattr(main_screen, "probe", lambda url, cookies_browser="": info)
+    app = GingerTeaApp()
+    async with app.run_test(size=(110, 42)) as pilot:
+        screen = app.screen
+        screen.load(info.url)
+        assert await settle(pilot, lambda: screen.info is not None)
+        await pilot.press("e")
+        assert await settle(pilot, lambda: isinstance(app.screen, PlaylistScreen))
+        app.screen.query_one("#first-n").value = "1"
+        await pilot.click("#go")
+        assert await settle(pilot, lambda: screen.jobs and screen.jobs[0].state == runner.DONE)
+        assert screen.jobs[0].title == "One"
+        assert len(screen.jobs) == 1
+
+
+async def test_a_search_is_sent_to_youtube(fakes):
+    app = GingerTeaApp()
+    async with app.run_test(size=(100, 40)) as pilot:
+        screen = app.screen
+        screen.query_one("#url").value = "kyoto tea"
+        await pilot.press("enter")
+        assert await settle(
+            pilot, lambda: any(call[0] == "ytsearch8:kyoto tea" for call in fakes["probe"])
+        )
+
+
 async def test_paste_then_download(fakes):
     app = GingerTeaApp()
     async with app.run_test(size=(100, 40)) as pilot:

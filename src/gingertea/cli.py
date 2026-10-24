@@ -15,6 +15,14 @@ def main(argv: list[str] | None = None) -> int:
         return _update()
     if argv[:1] == ["setup"]:
         return _setup()
+    if argv[:1] == ["get"]:
+        from .commands import get_command
+
+        return get_command(argv[1:])
+    if argv[:1] == ["convert"]:
+        from .commands import convert_command
+
+        return convert_command(argv[1:])
 
     parser = argparse.ArgumentParser(
         prog="gingertea",

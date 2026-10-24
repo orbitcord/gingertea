@@ -51,18 +51,26 @@ uv tool install git+https://github.com/orbitcord/gingertea
 gingertea                  # open the app
 gingertea <url>            # open with a video link loaded
 gingertea <file>           # open Convert files with a file loaded
+gingertea get <url>        # download without opening the app
+gingertea convert <file> -f mp3
 gingertea setup            # get ffmpeg and check available formats
 gingertea update           # update yt-dlp
 gingertea --version
 ```
 
-Paste a link and gingertea shows the title, channel, length, upload date and thumbnail.
+Paste a link, or type a search and press Enter. gingertea shows the title, channel,
+length, upload date and thumbnail. A playlist or channel shows how many videos it has.
 The footer lists the keyboard shortcuts, and its shortcuts are clickable.
 
 | Key | Action |
 | --- | --- |
-| `d` | Download the loaded video as MP4 |
-| `c` | Choose a format and quality |
+| `d` | Download the loaded video as MP4, or every video in a playlist |
+| `e` | Tick videos in a playlist, or type a number to keep the first N |
+| `a` | Download audio, using the last audio choice |
+| `c` | Choose a format, quality, clip, subtitles and extras |
+| `p` | Pause or resume the queue |
+| `h` | History: open, show, copy, download again, or forget |
+| `v` | Load a video link copied to the clipboard |
 | `x` | Cancel the current job |
 | `l` or `4` | Search supported sites |
 | `s` or `3` | Open Settings |
@@ -76,9 +84,16 @@ The footer lists the keyboard shortcuts, and its shortcuts are clickable.
 | `q` | Quit |
 
 While the URL field has focus, letters go into the link. Press `Tab` first or click a
-shortcut in the footer. You can add another link while a download runs; downloads run
-one at a time in their queue. The tabs, wordmark, thumbnail and shortcuts adapt to
-compact terminals so the input, actions and queue stay visible.
+shortcut in the footer. You can add another link while a download runs. Settings chooses
+how many run at once, from 1 to 4. `p` holds the ones still waiting. The tabs, wordmark,
+thumbnail and shortcuts adapt to compact terminals so the input, actions and queue stay
+visible.
+
+`gingertea get` and `gingertea convert` print progress to stderr and each saved path to
+stdout, so a script can use the file. `gingertea get` takes `--format`, `--quality`,
+`--audio`, `--start`, `--end`, `--subs`, `--embed-subs`, `--srt`, `--sponsorblock`,
+`--chapters` and `--loudnorm`. `gingertea convert` takes `-f`, plus `--start`, `--end`,
+`--chapters`, `--loudnorm`, `--max-kb` and `--strip-exif`.
 
 ### Download formats
 
@@ -90,6 +105,23 @@ compact terminals so the input, actions and queue stay visible.
 The quality list only shows options available for the video. The default MP4 choice
 prefers H.264 for compatibility. YouTube usually limits H.264 to 1080p; higher MP4
 resolutions may use VP9 or AV1, which some older players cannot play.
+
+The same dialog has a clip, with a start and end such as `1:30`, `90` or `1m30s`. The
+end has to come after the start. That works for a link and for a file on your computer.
+Subtitles can go inside an MP4, MKV or WebM, or sit beside it as a `.srt`, in the
+languages you list. On YouTube, SponsorBlock can cut sponsor segments or mark them as
+chapters. Audio can be split into one file per chapter, and the volume can be evened
+out. Images can be limited to a size in KB, and location data can be stripped.
+
+A playlist is saved into a folder named after the playlist. A bare YouTube channel link
+opens its Videos tab. Run the playlist again and videos already saved are skipped.
+Press `h` for history: search it, open a file, show it in its folder, copy the link,
+download it again, or forget the entry. When you come back to gingertea it offers a
+link you copied; `v` loads it. If the queue finishes while the terminal is in the
+background, gingertea posts a system notification.
+
+Settings includes the filename. `{title}`, `{id}`, `{channel}`, `{date}`, `{index}` and
+`{ext}` are filled in, and `/` makes a folder. An example name is shown as you type.
 
 ### Convert files on your computer
 

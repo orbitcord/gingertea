@@ -18,3 +18,4 @@ gingertea_*.svg
 .ruff_cache/
 design/
 design-qa.md
+.cursor/hooks/state/

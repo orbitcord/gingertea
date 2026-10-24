@@ -7,6 +7,7 @@ runs it with progress and cancel.
 
 from __future__ import annotations
 
+import io
 import json
 import shlex
 import shutil
@@ -20,15 +21,18 @@ from functools import cache
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
+from .names import sanitize
 from .options import (
     AUDIO_BITRATES,
     FRAME_RATES,
+    LOUDNORM,
     Choice,
     gif_filter,
     image_sizes,
     video_qualities,
 )
 from .runner import CONVERTING, Progress, unique_path
+from .times import format_seconds
 
 VIDEO, AUDIO, IMAGE, ANIMATED = "video", "audio", "image", "animated"
 
@@ -429,7 +433,17 @@ def probe_with_pillow(path: Path) -> FileInfo | None:
 
 def _ffprobe(path: Path, ffmpeg_dir: str | None) -> FileInfo:
     exe = _exe("ffprobe", ffmpeg_dir)
-    cmd = [exe, "-v", "error", "-show_format", "-show_streams", "-of", "json", str(path)]
+    cmd = [
+        exe,
+        "-v",
+        "error",
+        "-show_format",
+        "-show_streams",
+        "-show_chapters",
+        "-of",
+        "json",
+        str(path),
+    ]
     try:
         out = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
     except (OSError, subprocess.TimeoutExpired) as exc:
@@ -560,6 +574,8 @@ def qualities_for(info: FileInfo, kind: str, fmt: str) -> list[str]:
 
 def is_fast_copy(info: FileInfo, choice: Choice) -> bool:
     """True when the conversion only repackages streams: seconds, and no quality lost."""
+    if choice.loudnorm or choice.split_chapters:
+        return False
     if choice.kind == "video":
         copy_v, copy_a = _video_copy(info, choice)
         return copy_v and (copy_a or info.audio is None)
@@ -591,17 +607,47 @@ def _video_copy(info: FileInfo, choice: Choice) -> tuple[bool, bool]:
         and _scale_height(info, choice) is None
         and _allows(target.copy_video, v.codec)
     )
-    copy_a = a is not None and _allows(target.copy_audio, a.codec)
+    copy_a = a is not None and _allows(target.copy_audio, a.codec) and not choice.loudnorm
     return copy_v, copy_a
 
 
 def _audio_copy(info: FileInfo, choice: Choice) -> bool:
     a = info.audio
     target = AUDIO_TARGETS[choice.fmt]
-    return bool(a) and choice.quality == "best" and _allows(target.copy, a.codec)
+    return (
+        bool(a)
+        and choice.quality == "best"
+        and not choice.loudnorm
+        and _allows(target.copy, a.codec)
+    )
 
 
 # ---------- planning the ffmpeg command ----------
+
+
+def _seek(choice: Choice) -> list[str]:
+    if choice.kind not in {"video", "audio"}:
+        return []
+    args = []
+    if choice.start is not None:
+        args += ["-ss", format_seconds(choice.start)]
+    if choice.end is not None:
+        args += ["-to", format_seconds(choice.end)]
+    return args
+
+
+def chapters_from(data: dict) -> list[tuple[float, float, str]]:
+    found = []
+    for index, chapter in enumerate(data.get("chapters") or [], 1):
+        try:
+            start = float(chapter.get("start_time") or 0)
+            end = float(chapter.get("end_time") or 0)
+        except (TypeError, ValueError):
+            continue
+        title = ((chapter.get("tags") or {}).get("title")) or f"Chapter {index}"
+        if end > start:
+            found.append((start, end, str(title)))
+    return found
 
 
 def extension(kind: str, fmt: str) -> str:
@@ -627,7 +673,8 @@ def build_ffmpeg_args(
 
     For frames, `out` is a folder; the frames go inside it as `<stem> 0001.png`...
     """
-    args = ["-hide_banner", "-nostdin", "-y", "-i", str(info.path)]
+    # Seeking before -i keeps a copy fast. The cut lands on a keyframe, which is enough here.
+    args = ["-hide_banner", "-nostdin", "-y", *_seek(choice), "-i", str(info.path)]
     if choice.kind == "video":
         return [*args, *_video_args(info, choice, has_encoder), str(out)]
     if choice.kind == "audio":
@@ -663,6 +710,8 @@ def _video_args(info: FileInfo, choice: Choice, has_encoder: HasEncoder) -> list
             args += ["-c:a", "copy"]
         else:
             args += _audio_encode(AUDIO_TARGETS[target.audio], "best", has_encoder)
+            if choice.loudnorm:
+                args += ["-af", LOUDNORM]
     elif info.audio:
         args += ["-an"]
     return [*args, *target.extra]
@@ -684,7 +733,10 @@ def _audio_args(info: FileInfo, choice: Choice, has_encoder: HasEncoder) -> list
     args = ["-vn", "-map", "0:a:0", "-map_metadata", "0"]
     if _audio_copy(info, choice):
         return [*args, "-c:a", "copy"]
-    return [*args, *_audio_encode(AUDIO_TARGETS[choice.fmt], choice.quality, has_encoder)]
+    encoded = _audio_encode(AUDIO_TARGETS[choice.fmt], choice.quality, has_encoder)
+    if choice.loudnorm:
+        encoded += ["-af", LOUDNORM]
+    return [*args, *encoded]
 
 
 def _image_encode(fmt: str, has_encoder: HasEncoder) -> list[str]:
@@ -696,6 +748,8 @@ def _image_encode(fmt: str, has_encoder: HasEncoder) -> list[str]:
 
 def _image_args(choice: Choice, has_encoder: HasEncoder) -> list[str]:
     args = ["-map", "0:v:0", "-frames:v", "1", "-update", "1"]
+    if choice.strip_metadata:
+        args += ["-map_metadata", "-1"]
     filters = []
     if choice.quality == "50":
         filters.append("scale=iw/2:-1")
@@ -720,6 +774,87 @@ def _frames_args(choice: Choice, has_encoder: HasEncoder) -> list[str]:
     return [*args, *_image_encode(choice.fmt, has_encoder)]
 
 
+def _convert_chapters(info, choice, on_progress, cancel_event, ffmpeg_dir, has_encoder) -> str:
+    chapters = chapters_from(info.raw)
+    if not chapters:
+        raise LocalFileError("This file has no chapters.")
+    folder = unique_path(info.path.parent / f"{info.path.stem} chapters")
+    folder.mkdir(parents=True)
+    work = Path(tempfile.mkdtemp(prefix=".gingertea-", dir=info.path.parent))
+    try:
+        total = len(chapters)
+        for index, (start, end, title) in enumerate(chapters, 1):
+            if cancel_event.is_set():
+                raise ConvertCancelled("Cancelled")
+            on_progress(
+                Progress(CONVERTING, f"Chapter {index} of {total}", fraction=(index - 1) / total)
+            )
+            clipped = replace(choice, start=start, end=end, split_chapters=False)
+            name = sanitize(title) or f"Chapter {index}"
+            out = work / f"{index:02d} {name}.{extension(choice.kind, choice.fmt)}"
+            args = build_ffmpeg_args(info, clipped, out, has_encoder)
+            _run_ffmpeg(info, args, ffmpeg_dir, lambda _progress: None, cancel_event, False)
+            if not out.exists():
+                raise LocalFileError(f"Chapter {index} produced no file.")
+            shutil.move(str(out), unique_path(folder / out.name))
+        return str(folder)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def fit_max_bytes(path: Path, max_kb: int) -> None:
+    """Re-save an image until it fits `max_kb`, keeping the smallest attempt if it never does."""
+    limit = max_kb * 1024
+    try:
+        if max_kb <= 0 or path.stat().st_size <= limit:
+            return
+        original = path.read_bytes()
+    except OSError:
+        return
+    image_mod = pillow()
+    try:
+        with image_mod.open(io.BytesIO(original)) as opened:
+            im = opened.copy()
+            name = opened.format or "JPEG"
+    except Exception:
+        return
+    smallest = original
+    for quality in range(85, 15, -10):
+        data = _pillow_bytes(im, name, quality=quality, optimize=True)
+        if data is None:
+            continue
+        if len(data) < len(smallest):
+            smallest = data
+        if len(data) <= limit:
+            path.write_bytes(data)
+            return
+    if name == "PNG":
+        for colors in (256, 128, 64, 32):
+            try:
+                reduced = im.convert("P", palette=image_mod.Palette.ADAPTIVE, colors=colors)
+            except Exception:
+                continue
+            data = _pillow_bytes(reduced, "PNG", optimize=True)
+            if data is None:
+                continue
+            if len(data) < len(smallest):
+                smallest = data
+            if len(data) <= limit:
+                path.write_bytes(data)
+                return
+    if len(smallest) < len(original):
+        path.write_bytes(smallest)
+
+
+def _pillow_bytes(im, name: str, **kwargs) -> bytes | None:
+    buf = io.BytesIO()
+    try:
+        im.save(buf, name, **kwargs)
+    except (TypeError, ValueError, OSError):
+        return None
+    return buf.getvalue()
+
+
 # ---------- running it ----------
 
 
@@ -741,6 +876,8 @@ def run_convert(
         return deps.ffmpeg_has_encoder(ffmpeg_dir, name) if ffmpeg_dir else True
 
     folder = info.path.parent
+    if choice.split_chapters and choice.kind in {"video", "audio"}:
+        return _convert_chapters(info, choice, on_progress, cancel_event, ffmpeg_dir, has_encoder)
     # Write into a private folder first, so a half-written file never sits next to the
     # original under its final name; move the result out at the end.
     work = Path(tempfile.mkdtemp(prefix=".gingertea-", dir=folder))
@@ -752,6 +889,8 @@ def run_convert(
             _convert_image(
                 info, choice, out, work, has_encoder, ffmpeg_dir, on_progress, cancel_event
             )
+            if choice.max_kb:
+                fit_max_bytes(out, choice.max_kb)
             target = unique_path(folder / out.name)
             shutil.move(str(out), target)
             return str(target)
@@ -883,7 +1022,8 @@ def save_with_pillow(src: Path, choice: Choice, out: Path) -> None:
     im = _pillow_mode(im, name)
     kwargs = dict(PILLOW_SAVE_ARGS.get(name, {}))
     if name in PILLOW_KEEPS_METADATA:
-        for key in ("exif", "icc_profile"):
+        keep = ("icc_profile",) if choice.strip_metadata else ("exif", "icc_profile")
+        for key in keep:
             if im.info.get(key):
                 kwargs[key] = im.info[key]
     try:

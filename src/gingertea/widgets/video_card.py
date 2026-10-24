@@ -7,6 +7,7 @@ from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, ContentSwitcher, LoadingIndicator, Static
 
 from ..engine import errors
+from ..engine.names import playlist_folder
 from ..engine.probe import VideoInfo
 from .thumbnail import Thumbnail
 
@@ -40,11 +41,13 @@ class VideoCard(Vertical):
                     yield Static(id="video-meta")
                     with Horizontal(id="actions"):
                         yield Button("\\[d] Download", id="download")
+                        yield Button("\\[e] Choose", id="choose")
                         yield Button("\\[c] Convert", id="convert")
                         yield Static("MP4 by default", id="action-hint")
 
     def on_mount(self) -> None:
         self.border_title = "Video"
+        self.query_one("#choose").display = False
 
     def _show(self, name: str) -> None:
         self.query_one(ContentSwitcher).current = name
@@ -74,8 +77,18 @@ class VideoCard(Vertical):
 
     def show_info(self, info: VideoInfo) -> None:
         self._info = info
+        self.border_title = "Playlist" if info.is_playlist else "Video"
         self.query_one("#thumb", Thumbnail).image = None
         self.query_one("#video-title", Static).update(f"[b]{_escape(info.title)}[/b]")
+        self.query_one("#choose").display = info.is_playlist
+        self.query_one("#convert").display = not info.is_playlist
+        download = "\\[d] Download all" if info.is_playlist else "\\[d] Download"
+        self.query_one("#download", Button).label = download
+        if info.is_playlist:
+            folder = playlist_folder(info.title, info.channel)
+            self.query_one("#action-hint", Static).update(f"MP4  ·  {_escape(folder)}/")
+        else:
+            self.query_one("#action-hint", Static).update("MP4 by default")
         self._render_meta()
         self._show("card-info")
 
@@ -88,19 +101,33 @@ class VideoCard(Vertical):
         if info is None:
             return
         if self.screen.size.height < 30:
-            bits = [info.channel, info.duration_text, info.extractor]
-            quality = f"Up to {info.max_height}p" if info.max_height else ""
+            if info.is_playlist:
+                bits = [info.channel, f"{len(info.entries)} videos", info.extractor]
+            else:
+                bits = [info.channel, info.duration_text, info.extractor]
+            quality = (
+                "" if info.is_playlist else (f"Up to {info.max_height}p" if info.max_height else "")
+            )
             text = " · ".join(_escape(b) for b in bits if b)
-            text += "\n" + " · ".join(_escape(b) for b in (info.date_text, quality) if b)
+            extra = [b for b in (() if info.is_playlist else (info.date_text, quality)) if b]
+            if extra:
+                text += "\n" + " · ".join(_escape(b) for b in extra)
             self.query_one("#video-meta", Static).update(text)
             return
-        rows = [
-            ("channel", info.channel),
-            ("length", info.duration_text),
-            ("uploaded", info.date_text),
-        ]
-        if info.max_height:
-            rows.append(("quality", f"up to {info.max_height}p"))
+        if info.is_playlist:
+            rows = [
+                ("channel", info.channel),
+                ("videos", str(len(info.entries))),
+                ("folder", playlist_folder(info.title, info.channel) + "/"),
+            ]
+        else:
+            rows = [
+                ("channel", info.channel),
+                ("length", info.duration_text),
+                ("uploaded", info.date_text),
+            ]
+            if info.max_height:
+                rows.append(("quality", f"up to {info.max_height}p"))
         if info.extractor:
             rows.append(("site", info.extractor))
         self.query_one("#video-meta", Static).update(

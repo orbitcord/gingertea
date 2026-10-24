@@ -14,6 +14,7 @@ from textual.widgets import Button, DirectoryTree, Input, Label, OptionList, Sel
 from textual.widgets.option_list import Option
 
 from ..config import Settings
+from ..engine.names import UnknownField, example_name
 
 BROWSERS = [
     ("Chrome", "chrome"),
@@ -67,6 +68,20 @@ class SettingsScreen(ModalScreen[Settings | None]):
                 "Keychain prompt.[/dim]",
                 id="cookies-note",
             )
+            yield Label("Downloads at once", classes="field-label")
+            yield Select(
+                [(str(n), n) for n in range(1, 5)],
+                value=self.settings.parallel,
+                allow_blank=False,
+                id="parallel",
+            )
+            yield Label("Filename", classes="field-label")
+            yield Input(self.settings.filename_template, id="template")
+            yield Static(id="template-example")
+            yield Static(
+                "[dim]{title}  {id}  {channel}  {date}  {index}  {ext}\n/ makes a folder[/dim]",
+                id="template-help",
+            )
             with Horizontal(id="dialog-actions"):
                 yield Button("Save", id="save", variant="primary")
                 yield Button("Cancel", id="cancel")
@@ -74,6 +89,18 @@ class SettingsScreen(ModalScreen[Settings | None]):
     def on_mount(self) -> None:
         self.query_one("#tree").display = False
         self.query_one("#folder", Input).focus()
+        self._preview(self.settings.filename_template)
+
+    @on(Input.Changed, "#template")
+    def _template_changed(self, event: Input.Changed) -> None:
+        self._preview(event.value)
+
+    def _preview(self, template: str) -> None:
+        example = self.query_one("#template-example", Static)
+        try:
+            example.update(f"[dim]{example_name(template)}[/dim]")
+        except UnknownField as exc:
+            example.update(f"[$error]Unknown field {{{exc.name}}}[/]")
 
     @on(Button.Pressed, "#browse")
     def _browse(self) -> None:
@@ -101,11 +128,20 @@ class SettingsScreen(ModalScreen[Settings | None]):
             error.update(f"[$error]Can't use that folder: {exc.strerror or exc}[/]")
             return
         cookies = self.query_one("#cookies", Select).value
+        template = self.query_one("#template", Input).value.strip()
+        try:
+            example_name(template)
+        except UnknownField as exc:
+            error.update(f"[$error]Unknown field {{{exc.name}}}[/]")
+            return
+        parallel = self.query_one("#parallel", Select).value
         self.dismiss(
             replace(
                 self.settings,
                 download_dir=str(path),
                 cookies_browser=cookies if isinstance(cookies, str) else "",
+                parallel=parallel if isinstance(parallel, int) else 1,
+                filename_template=template or "{title} [{id}]",
             )
         )
 

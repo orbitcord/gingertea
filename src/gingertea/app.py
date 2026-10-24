@@ -22,6 +22,16 @@ class GingerTeaApp(App):
         # Set when PyPI has a newer gingertea; the CLI starts the upgrade after the app exits.
         self.pending_app_update: str | None = None
         self.settings = config.load()
+        self.in_foreground = True
+
+    def on_app_focus(self) -> None:
+        self.in_foreground = True
+        screen = self.screen
+        if isinstance(screen, MainScreen):
+            screen.offer_clipboard()
+
+    def on_app_blur(self) -> None:
+        self.in_foreground = False
 
     def on_mount(self) -> None:
         for theme in THEMES:

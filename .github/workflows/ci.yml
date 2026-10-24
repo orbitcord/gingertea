@@ -24,13 +24,45 @@ jobs:
       - run: uv sync --locked
       - run: uv run ruff check src tests
       - run: uv run ruff format --check src tests
-      - run: uv run pytest -q
+      - name: Ensure FFmpeg is available for conversion tests
+        shell: uv run python {0}
+        run: |
+          import os
+          from pathlib import Path
+          from gingertea.engine.deps import find_ffmpeg
+
+          tool = find_ffmpeg(fetch=True)
+          assert tool is not None, "FFmpeg and ffprobe are required for conversion tests"
+          with Path(os.environ["GITHUB_PATH"]).open("a", encoding="utf-8") as path:
+              path.write(tool.path + "\n")
+      - run: ffmpeg -version
+      - run: ffprobe -version
+      - run: uv run pytest -q -ra
       - run: uv build --no-sources
 
   install-script:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      GINGERTEA_SOURCE: ${{ github.workspace }}
+      GINGERTEA_NO_MODIFY_PATH: "1"
     steps:
       - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
       - name: Install from this checkout with install.sh
-        run: GINGERTEA_SOURCE="$PWD" sh install.sh
-      - run: ~/.local/bin/gingertea --version
+        if: runner.os != 'Windows'
+        run: sh install.sh
+      - name: Check the installed command on Unix
+        if: runner.os != 'Windows'
+        run: '"$(uv tool dir --bin)/gingertea" --version'
+      - name: Install from this checkout with install.ps1
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./install.ps1
+      - name: Check the installed command on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: '& (Join-Path (uv tool dir --bin) "gingertea.exe") --version'

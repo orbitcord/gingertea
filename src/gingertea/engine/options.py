@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, replace
+
+from ..config import Settings
 
 VIDEO_FORMATS = ("mp4", "mkv", "webm", "mov", "gif")
 AUDIO_FORMATS = ("mp3", "m4a", "opus", "flac", "wav", "ogg")
@@ -38,6 +41,20 @@ H264_FIRST = ("mp4", "mov")
 OUTPUT_TEMPLATE = "%(title).180B [%(id)s].%(ext)s"
 
 
+# SponsorBlock categories worth cutting. Highlights and full-video chapters stay.
+SPONSOR_CATEGORIES = (
+    "sponsor",
+    "intro",
+    "outro",
+    "selfpromo",
+    "preview",
+    "filler",
+    "interaction",
+)
+EMBED_SUBS = {"mp4", "mkv", "webm"}
+LOUDNORM = "loudnorm=I=-16:TP=-1.5:LRA=11"
+
+
 @dataclass(frozen=True)
 class Choice:
     kind: str  # "video", "audio", or for local files also "image" and "frames"
@@ -45,6 +62,15 @@ class Choice:
     # "best", a height like "1080", a bitrate like "320", an image size like "1920" or "50"
     # (percent), or a frame rate like "1".
     quality: str = "best"
+    start: float | None = None
+    end: float | None = None
+    subtitles: str = "off"  # off, embed, srt
+    languages: tuple[str, ...] = ()
+    sponsorblock: str = "off"  # off, cut, chapters
+    split_chapters: bool = False
+    loudnorm: bool = False
+    max_kb: int | None = None
+    strip_metadata: bool = False
 
     @property
     def label(self) -> str:
@@ -147,7 +173,81 @@ def build_options(
         # mp4/m4a/mp3 can't hold webp art, so normalise thumbnails to jpg first.
         pps.insert(0, {"key": "FFmpegThumbnailsConvertor", "format": "jpg", "when": "before_dl"})
         pps.append({"key": "EmbedThumbnail", "already_have_thumbnail": False})
+    _extras(choice, opts, pps, final_ext)
     return opts
+
+
+def parse_langs(text: str) -> tuple[str, ...]:
+    return tuple(part for part in re.split(r"[\s,]+", text.strip()) if part)
+
+
+def apply_saved(choice: Choice, settings: Settings) -> Choice:
+    """A quick download (`d` or `a`) picks up the extras saved from the Convert dialog."""
+    langs = parse_langs(settings.subtitle_langs)
+    max_kb = int(settings.image_max_kb) if settings.image_max_kb.isdigit() else None
+    video = choice.kind == "video"
+    heard = choice.kind in {"video", "audio"}
+    return replace(
+        choice,
+        subtitles=settings.subtitle_mode if video else "off",
+        languages=langs if video else (),
+        sponsorblock=settings.sponsorblock if video else "off",
+        split_chapters=settings.split_chapters if heard else False,
+        loudnorm=settings.loudnorm if heard else False,
+        max_kb=max_kb if choice.kind == "image" else None,
+        strip_metadata=settings.strip_exif if choice.kind == "image" else False,
+    )
+
+
+def _extras(choice: Choice, opts: dict, pps: list, final_ext: str) -> None:
+    if choice.start is not None or choice.end is not None:
+        opts["download_ranges"] = _range(choice.start, choice.end)
+        opts["force_keyframes_at_cuts"] = True
+    if choice.subtitles != "off" and choice.languages and choice.kind == "video":
+        opts["writesubtitles"] = True
+        opts["writeautomaticsub"] = True
+        opts["subtitleslangs"] = list(choice.languages)
+        opts["subtitlesformat"] = "srt/best"
+        if choice.subtitles == "embed" and final_ext in EMBED_SUBS:
+            pps.append({"key": "FFmpegEmbedSubtitle"})
+        else:
+            pps.append({"key": "FFmpegSubtitlesConvertor", "format": "srt"})
+    if choice.sponsorblock in {"cut", "chapters"} and choice.kind == "video" and final_ext != "gif":
+        categories = list(SPONSOR_CATEGORIES)
+        block = {"key": "SponsorBlock", "categories": categories}
+        modify = {
+            "key": "ModifyChapters",
+            "remove_sponsor_segments": categories if choice.sponsorblock == "cut" else [],
+        }
+        at = next((i for i, pp in enumerate(pps) if pp["key"] == "FFmpegMetadata"), len(pps))
+        pps[at:at] = [block, modify]
+    if choice.loudnorm and choice.kind == "audio":
+        args = opts.setdefault("postprocessor_args", {}).setdefault("extractaudio", [])
+        args.extend(["-af", LOUDNORM])
+    if choice.loudnorm and choice.kind == "video" and final_ext != "gif":
+        pps.append({"key": "FFmpegVideoConvertor", "preferedformat": final_ext})
+        opts.setdefault("postprocessor_args", {})["videoconvertor"] = [
+            "-c:v",
+            "copy",
+            "-af",
+            LOUDNORM,
+            "-c:a",
+            "aac",
+            "-b:a",
+            "192k",
+        ]
+    if choice.split_chapters and choice.kind in {"video", "audio"} and final_ext != "gif":
+        pps.append({"key": "FFmpegSplitChapters"})
+
+
+def _range(start: float | None, end: float | None):
+    """yt-dlp calls this with (info, ydl) and downloads only the returned section."""
+
+    def callback(info: dict, _ydl: object) -> list[dict]:
+        stop = end if end is not None else (info.get("duration") or 10**8)
+        return [{"start_time": 0 if start is None else start, "end_time": stop}]
+
+    return callback
 
 
 def _video(choice: Choice, opts: dict, pps: list) -> None:

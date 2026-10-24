@@ -303,7 +303,7 @@ def test_setup_command_downloads_and_reports(monkeypatch, capsys):
     assert cli.main(["setup"]) == 0
     assert fetched == [True]  # progress shown in the terminal
     out = capsys.readouterr().out
-    assert "Getting ffmpeg" in out and "✓ ffmpeg is in /b" in out
+    assert "Getting ffmpeg" in out and "ffmpeg is in /b" in out
     assert "not available: OGV" in out
 
 

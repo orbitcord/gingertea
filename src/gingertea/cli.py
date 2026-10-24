@@ -44,7 +44,7 @@ def main(argv: list[str] | None = None) -> int:
 
         if update.start_self_upgrade():
             print(
-                f"Updating gingertea {__version__} → {app.pending_app_update} in the background."
+                f"Updating gingertea {__version__} -> {app.pending_app_update} in the background."
                 " It'll be ready next time you run gingertea."
             )
     return 0
@@ -63,14 +63,14 @@ def _setup() -> int:
     if deps.bundled_ffmpeg_ready():
         print("ffmpeg is already set up.")
     else:
-        print("Getting ffmpeg for gingertea (one time, about 50 MB)…")
+        print("Getting ffmpeg for gingertea (one time, about 50 MB)...")
     try:
         tool = deps.fetch_bundled_ffmpeg(show_progress=True)
     except Exception as exc:
         print(f"Couldn't download ffmpeg: {exc}")
         print("gingertea will try again the first time it needs ffmpeg.")
         return 1
-    print(f"✓ ffmpeg is in {tool.path}")
+    print(f"ffmpeg is in {tool.path}")
     if system := deps.system_ffmpeg():
         print(f"  Your own ffmpeg in {system.path} is used too, for anything it can do.")
 
@@ -95,7 +95,7 @@ def _update() -> int:
     if latest and update._key(latest) <= update._key(current):
         print(f"yt-dlp {current} is already the latest version.")
         return 0
-    print(f"Updating yt-dlp {current} → {latest or 'latest'}…")
+    print(f"Updating yt-dlp {current} -> {latest or 'latest'}...")
     print("$ " + " ".join(update.upgrade_command()))
     ok, output = update.upgrade()
     if output:

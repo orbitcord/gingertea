@@ -1,33 +1,53 @@
-name: Release
-
-# Push a tag like v0.1.0 to build and publish to PyPI.
-# One-time setup: add a "trusted publisher" for this repo on PyPI
-# (project gingertea, workflow release.yml, environment pypi).
+name: Rust release
 on:
   push:
-    tags: ["v*"]
-
+    tags: ['v*']
+permissions:
+  contents: write
 jobs:
-  publish:
-    runs-on: ubuntu-latest
-    environment: pypi
-    permissions:
-      id-token: write
-      contents: write
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            asset: gingertea-linux-x86_64
+          - os: macos-latest
+            asset: gingertea-macos-arm64
+          - os: windows-latest
+            asset: gingertea-windows-x86_64.exe
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-      - name: Check the tag matches the package version
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Verify release version
+        shell: bash
         run: |
-          version=$(uv version --short)
-          test "v$version" = "$GITHUB_REF_NAME" || { echo "Tag $GITHUB_REF_NAME != v$version"; exit 1; }
-      - run: uv sync --locked
-      - run: uv run ruff check src tests
-      - run: uv run ruff format --check src tests
-      - run: uv run pytest -q
-      - run: uv build --no-sources
-      - uses: pypa/gh-action-pypi-publish@release/v1
-      - name: GitHub release
+          version=$(cargo metadata --no-deps --format-version 1 | python -c 'import json,sys; print(json.load(sys.stdin)["packages"][0]["version"])')
+          test "v$version" = "$GITHUB_REF_NAME"
+      - run: cargo build --release --locked
+      - name: Package executable
+        shell: bash
+        run: |
+          if [ -f target/release/gingertea.exe ]; then
+            cp target/release/gingertea.exe '${{ matrix.asset }}'
+          else
+            cp target/release/gingertea '${{ matrix.asset }}'
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: ${{ matrix.asset }}
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+      - name: Publish release assets
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --generate-notes
+          GH_REPO: ${{ github.repository }}
+        run: gh release create "$GITHUB_REF_NAME" assets/* --generate-notes

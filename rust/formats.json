@@ -1,0 +1,836 @@
+{
+  "audio": {
+    "mp3": {
+      "note": "widely supported",
+      "encode": [
+        "-c:a",
+        "libmp3lame"
+      ],
+      "copy": [
+        "mp3"
+      ],
+      "lossless": false,
+      "bitrate": "192",
+      "best": [
+        "-q:a",
+        "0"
+      ],
+      "fallback": [],
+      "ext": ""
+    },
+    "m4a": {
+      "note": "AAC, Apple devices",
+      "encode": [
+        "-c:a",
+        "aac"
+      ],
+      "copy": [
+        "aac"
+      ],
+      "lossless": false,
+      "bitrate": "256",
+      "best": [],
+      "fallback": [],
+      "ext": ""
+    },
+    "aac": {
+      "note": "raw AAC stream",
+      "encode": [
+        "-c:a",
+        "aac"
+      ],
+      "copy": [
+        "aac"
+      ],
+      "lossless": false,
+      "bitrate": "256",
+      "best": [],
+      "fallback": [],
+      "ext": ""
+    },
+    "opus": {
+      "note": "compressed audio",
+      "encode": [
+        "-c:a",
+        "libopus"
+      ],
+      "copy": [
+        "opus"
+      ],
+      "lossless": false,
+      "bitrate": "160",
+      "best": [],
+      "fallback": [
+        "-c:a",
+        "opus",
+        "-strict",
+        "-2"
+      ],
+      "ext": ""
+    },
+    "ogg": {
+      "note": "Vorbis",
+      "encode": [
+        "-c:a",
+        "libvorbis"
+      ],
+      "copy": [
+        "vorbis"
+      ],
+      "lossless": false,
+      "bitrate": "192",
+      "best": [],
+      "fallback": [
+        "-c:a",
+        "vorbis",
+        "-strict",
+        "-2",
+        "-ac",
+        "2"
+      ],
+      "ext": ""
+    },
+    "flac": {
+      "note": "lossless",
+      "encode": [
+        "-c:a",
+        "flac"
+      ],
+      "copy": [
+        "flac"
+      ],
+      "lossless": true,
+      "bitrate": "192",
+      "best": [],
+      "fallback": [],
+      "ext": ""
+    },
+    "alac": {
+      "note": "Apple lossless",
+      "encode": [
+        "-c:a",
+        "alac"
+      ],
+      "copy": [
+        "alac"
+      ],
+      "lossless": true,
+      "bitrate": "192",
+      "best": [],
+      "fallback": [],
+      "ext": "m4a"
+    },
+    "wav": {
+      "note": "uncompressed",
+      "encode": [
+        "-c:a",
+        "pcm_s16le"
+      ],
+      "copy": [
+        "pcm_s16le"
+      ],
+      "lossless": true,
+      "bitrate": "192",
+      "best": [],
+      "fallback": [],
+      "ext": ""
+    },
+    "aiff": {
+      "note": "uncompressed, Apple",
+      "encode": [
+        "-c:a",
+        "pcm_s16be"
+      ],
+      "copy": [
+        "pcm_s16be"
+      ],
+      "lossless": true,
+      "bitrate": "192",
+      "best": [],
+      "fallback": [],
+      "ext": ""
+    },
+    "wma": {
+      "note": "Windows Media",
+      "encode": [
+        "-c:a",
+        "wmav2"
+      ],
+      "copy": [
+        "wmav2"
+      ],
+      "lossless": false,
+      "bitrate": "192",
+      "best": [],
+      "fallback": [],
+      "ext": ""
+    },
+    "ac3": {
+      "note": "Dolby Digital",
+      "encode": [
+        "-c:a",
+        "ac3"
+      ],
+      "copy": [
+        "ac3"
+      ],
+      "lossless": false,
+      "bitrate": "448",
+      "best": [],
+      "fallback": [],
+      "ext": ""
+    },
+    "eac3": {
+      "note": "Dolby Digital Plus",
+      "encode": [
+        "-c:a",
+        "eac3"
+      ],
+      "copy": [
+        "eac3"
+      ],
+      "lossless": false,
+      "bitrate": "448",
+      "best": [],
+      "fallback": [],
+      "ext": ""
+    },
+    "mp2": {
+      "note": "MPEG layer 2, broadcast",
+      "encode": [
+        "-c:a",
+        "mp2"
+      ],
+      "copy": [
+        "mp2"
+      ],
+      "lossless": false,
+      "bitrate": "256",
+      "best": [],
+      "fallback": [],
+      "ext": ""
+    },
+    "wv": {
+      "note": "WavPack, lossless",
+      "encode": [
+        "-c:a",
+        "wavpack"
+      ],
+      "copy": [
+        "wavpack"
+      ],
+      "lossless": true,
+      "bitrate": "192",
+      "best": [],
+      "fallback": [],
+      "ext": ""
+    },
+    "tta": {
+      "note": "True Audio, lossless",
+      "encode": [
+        "-c:a",
+        "tta"
+      ],
+      "copy": [
+        "tta"
+      ],
+      "lossless": true,
+      "bitrate": "192",
+      "best": [],
+      "fallback": [],
+      "ext": ""
+    },
+    "caf": {
+      "note": "Core Audio, lossless",
+      "encode": [
+        "-c:a",
+        "alac"
+      ],
+      "copy": [
+        "alac"
+      ],
+      "lossless": true,
+      "bitrate": "192",
+      "best": [],
+      "fallback": [],
+      "ext": ""
+    },
+    "au": {
+      "note": "Sun / NeXT audio",
+      "encode": [
+        "-c:a",
+        "pcm_s16be"
+      ],
+      "copy": [
+        "pcm_s16be"
+      ],
+      "lossless": true,
+      "bitrate": "192",
+      "best": [],
+      "fallback": [],
+      "ext": ""
+    },
+    "mka": {
+      "note": "Matroska, keeps any audio",
+      "encode": [
+        "-c:a",
+        "flac"
+      ],
+      "copy": null,
+      "lossless": true,
+      "bitrate": "192",
+      "best": [],
+      "fallback": [],
+      "ext": ""
+    }
+  },
+  "video": {
+    "mp4": {
+      "note": "widely supported",
+      "encode": [
+        "-c:v",
+        "libx264",
+        "-crf",
+        "20",
+        "-preset",
+        "medium",
+        "-pix_fmt",
+        "yuv420p"
+      ],
+      "audio": "m4a",
+      "copy_video": [
+        "h264",
+        "hevc"
+      ],
+      "copy_audio": [
+        "aac",
+        "alac",
+        "mp3"
+      ],
+      "extra": [
+        "-movflags",
+        "+faststart"
+      ],
+      "ext": "",
+      "animated": false
+    },
+    "mkv": {
+      "note": "keeps every stream",
+      "encode": [
+        "-c:v",
+        "libx264",
+        "-crf",
+        "20",
+        "-preset",
+        "medium",
+        "-pix_fmt",
+        "yuv420p"
+      ],
+      "audio": "m4a",
+      "copy_video": null,
+      "copy_audio": null,
+      "extra": [],
+      "ext": "",
+      "animated": false
+    },
+    "webm": {
+      "note": "open web format",
+      "encode": [
+        "-c:v",
+        "libvpx-vp9",
+        "-crf",
+        "32",
+        "-b:v",
+        "0",
+        "-row-mt",
+        "1"
+      ],
+      "audio": "opus",
+      "copy_video": [
+        "av1",
+        "vp8",
+        "vp9"
+      ],
+      "copy_audio": [
+        "opus",
+        "vorbis"
+      ],
+      "extra": [],
+      "ext": "",
+      "animated": false
+    },
+    "mov": {
+      "note": "Apple / editing apps",
+      "encode": [
+        "-c:v",
+        "libx264",
+        "-crf",
+        "20",
+        "-preset",
+        "medium",
+        "-pix_fmt",
+        "yuv420p"
+      ],
+      "audio": "m4a",
+      "copy_video": [
+        "h264",
+        "hevc",
+        "prores"
+      ],
+      "copy_audio": [
+        "aac",
+        "alac",
+        "pcm_s16le",
+        "pcm_s24le"
+      ],
+      "extra": [
+        "-movflags",
+        "+faststart"
+      ],
+      "ext": "",
+      "animated": false
+    },
+    "m4v": {
+      "note": "iTunes / Apple TV",
+      "encode": [
+        "-c:v",
+        "libx264",
+        "-crf",
+        "20",
+        "-preset",
+        "medium",
+        "-pix_fmt",
+        "yuv420p"
+      ],
+      "audio": "m4a",
+      "copy_video": [
+        "h264",
+        "hevc"
+      ],
+      "copy_audio": [
+        "aac",
+        "ac3",
+        "alac"
+      ],
+      "extra": [
+        "-movflags",
+        "+faststart"
+      ],
+      "ext": "",
+      "animated": false
+    },
+    "avi": {
+      "note": "older players",
+      "encode": [
+        "-c:v",
+        "mpeg4",
+        "-q:v",
+        "2",
+        "-tag:v",
+        "XVID",
+        "-pix_fmt",
+        "yuv420p"
+      ],
+      "audio": "mp3",
+      "copy_video": [
+        "h264",
+        "mjpeg",
+        "mpeg4"
+      ],
+      "copy_audio": [
+        "ac3",
+        "mp3",
+        "pcm_s16le"
+      ],
+      "extra": [],
+      "ext": "",
+      "animated": false
+    },
+    "ts": {
+      "note": "broadcast / streaming",
+      "encode": [
+        "-c:v",
+        "libx264",
+        "-crf",
+        "20",
+        "-preset",
+        "medium",
+        "-pix_fmt",
+        "yuv420p"
+      ],
+      "audio": "m4a",
+      "copy_video": [
+        "h264",
+        "hevc",
+        "mpeg2video"
+      ],
+      "copy_audio": [
+        "aac",
+        "ac3",
+        "mp2",
+        "mp3"
+      ],
+      "extra": [],
+      "ext": "",
+      "animated": false
+    },
+    "flv": {
+      "note": "Flash video",
+      "encode": [
+        "-c:v",
+        "libx264",
+        "-crf",
+        "20",
+        "-preset",
+        "medium",
+        "-pix_fmt",
+        "yuv420p"
+      ],
+      "audio": "m4a",
+      "copy_video": [
+        "h264"
+      ],
+      "copy_audio": [
+        "aac",
+        "mp3"
+      ],
+      "extra": [],
+      "ext": "",
+      "animated": false
+    },
+    "wmv": {
+      "note": "Windows Media",
+      "encode": [
+        "-c:v",
+        "wmv2",
+        "-q:v",
+        "2"
+      ],
+      "audio": "wma",
+      "copy_video": [
+        "wmv1",
+        "wmv2"
+      ],
+      "copy_audio": [
+        "wmav1",
+        "wmav2"
+      ],
+      "extra": [],
+      "ext": "",
+      "animated": false
+    },
+    "mpg": {
+      "note": "MPEG-2, DVD players",
+      "encode": [
+        "-c:v",
+        "mpeg2video",
+        "-q:v",
+        "2",
+        "-pix_fmt",
+        "yuv420p"
+      ],
+      "audio": "mp2",
+      "copy_video": [
+        "mpeg1video",
+        "mpeg2video"
+      ],
+      "copy_audio": [
+        "mp2"
+      ],
+      "extra": [],
+      "ext": "",
+      "animated": false
+    },
+    "3gp": {
+      "note": "old phones",
+      "encode": [
+        "-c:v",
+        "libx264",
+        "-crf",
+        "23",
+        "-profile:v",
+        "baseline",
+        "-pix_fmt",
+        "yuv420p"
+      ],
+      "audio": "m4a",
+      "copy_video": [
+        "h263",
+        "h264"
+      ],
+      "copy_audio": [
+        "aac"
+      ],
+      "extra": [],
+      "ext": "",
+      "animated": false
+    },
+    "ogv": {
+      "note": "Ogg Theora",
+      "encode": [
+        "-c:v",
+        "libtheora",
+        "-q:v",
+        "7"
+      ],
+      "audio": "ogg",
+      "copy_video": [
+        "theora"
+      ],
+      "copy_audio": [
+        "opus",
+        "vorbis"
+      ],
+      "extra": [],
+      "ext": "",
+      "animated": false
+    },
+    "gif": {
+      "note": "short clips, no sound",
+      "encode": [
+        "-c:v",
+        "gif"
+      ],
+      "audio": null,
+      "copy_video": [],
+      "copy_audio": [],
+      "extra": [],
+      "ext": "",
+      "animated": true
+    },
+    "apng": {
+      "note": "animated PNG, no sound",
+      "encode": [
+        "-c:v",
+        "apng",
+        "-plays",
+        "0",
+        "-f",
+        "apng"
+      ],
+      "audio": null,
+      "copy_video": [],
+      "copy_audio": [],
+      "extra": [],
+      "ext": "png",
+      "animated": true
+    },
+    "webp": {
+      "note": "animated WebP, no sound",
+      "encode": [
+        "-c:v",
+        "libwebp_anim",
+        "-loop",
+        "0",
+        "-quality",
+        "80",
+        "-f",
+        "webp"
+      ],
+      "audio": null,
+      "copy_video": [],
+      "copy_audio": [],
+      "extra": [],
+      "ext": "",
+      "animated": true
+    }
+  },
+  "image": {
+    "jpg": {
+      "note": "small, for photos",
+      "encoders": [
+        [
+          "-c:v",
+          "mjpeg",
+          "-q:v",
+          "2"
+        ]
+      ],
+      "ext": ""
+    },
+    "png": {
+      "note": "lossless",
+      "encoders": [
+        [
+          "-c:v",
+          "png"
+        ]
+      ],
+      "ext": ""
+    },
+    "webp": {
+      "note": "smaller than JPG",
+      "encoders": [
+        [
+          "-c:v",
+          "libwebp",
+          "-quality",
+          "90"
+        ]
+      ],
+      "ext": ""
+    },
+    "avif": {
+      "note": "smallest, newer apps",
+      "encoders": [
+        [
+          "-c:v",
+          "libaom-av1",
+          "-still-picture",
+          "1",
+          "-crf",
+          "28"
+        ],
+        [
+          "-c:v",
+          "libsvtav1",
+          "-crf",
+          "30",
+          "-pix_fmt",
+          "yuv420p"
+        ],
+        [
+          "-c:v",
+          "librav1e",
+          "-qp",
+          "70"
+        ]
+      ],
+      "ext": ""
+    },
+    "jxl": {
+      "note": "JPEG XL, newest",
+      "encoders": [],
+      "ext": ""
+    },
+    "heic": {
+      "note": "iPhone photos",
+      "encoders": [],
+      "ext": ""
+    },
+    "jp2": {
+      "note": "JPEG 2000, archives",
+      "encoders": [
+        [
+          "-c:v",
+          "libopenjpeg"
+        ],
+        [
+          "-c:v",
+          "jpeg2000"
+        ]
+      ],
+      "ext": ""
+    },
+    "tiff": {
+      "note": "print and editing",
+      "encoders": [
+        [
+          "-c:v",
+          "tiff"
+        ]
+      ],
+      "ext": ""
+    },
+    "bmp": {
+      "note": "uncompressed",
+      "encoders": [
+        [
+          "-c:v",
+          "bmp"
+        ]
+      ],
+      "ext": ""
+    },
+    "gif": {
+      "note": "256 colours",
+      "encoders": [
+        [
+          "-c:v",
+          "gif"
+        ]
+      ],
+      "ext": ""
+    },
+    "tga": {
+      "note": "games and 3D",
+      "encoders": [
+        [
+          "-c:v",
+          "targa"
+        ]
+      ],
+      "ext": ""
+    },
+    "qoi": {
+      "note": "fast lossless",
+      "encoders": [
+        [
+          "-c:v",
+          "qoi"
+        ]
+      ],
+      "ext": ""
+    },
+    "exr": {
+      "note": "HDR, visual effects",
+      "encoders": [
+        [
+          "-c:v",
+          "exr"
+        ]
+      ],
+      "ext": ""
+    },
+    "hdr": {
+      "note": "Radiance HDR",
+      "encoders": [
+        [
+          "-c:v",
+          "hdr"
+        ]
+      ],
+      "ext": ""
+    },
+    "ppm": {
+      "note": "plain bitmap",
+      "encoders": [
+        [
+          "-c:v",
+          "ppm"
+        ]
+      ],
+      "ext": ""
+    },
+    "pcx": {
+      "note": "retro PC paint",
+      "encoders": [
+        [
+          "-c:v",
+          "pcx"
+        ]
+      ],
+      "ext": ""
+    },
+    "sgi": {
+      "note": "Silicon Graphics",
+      "encoders": [
+        [
+          "-c:v",
+          "sgi"
+        ]
+      ],
+      "ext": ""
+    },
+    "dpx": {
+      "note": "film scans",
+      "encoders": [
+        [
+          "-c:v",
+          "dpx"
+        ]
+      ],
+      "ext": ""
+    }
+  }
+}

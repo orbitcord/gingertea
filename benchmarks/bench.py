@@ -108,7 +108,7 @@ def first_launch(runs: int) -> dict:
     for _ in range(runs):
         with tempfile.TemporaryDirectory() as cache:
             tui = Tui(env={**ENV, "PYTHONPYCACHEPREFIX": cache, "PYTHONDONTWRITEBYTECODE": "1"})
-            times.append(tui.wait_for("Paste a link above"))
+            times.append(tui.wait_for("No downloads yet."))
             tui.close()
     return {"first_launch_no_bytecode_s": round(statistics.median(times), 3)}
 
@@ -118,7 +118,7 @@ def startup(runs: int) -> dict:
     Tui().close()  # warm the bytecode cache
     for _ in range(runs):
         tui = Tui()
-        times.append(tui.wait_for("Paste a link above"))
+        times.append(tui.wait_for("No downloads yet."))
         time.sleep(1.0)  # let startup work (workers, first paints) settle
         rss.append(ps(tui.pid)[1])
         tui.close()
@@ -128,7 +128,7 @@ def startup(runs: int) -> dict:
     }
 
 
-def idle(seconds: float, *args: str, ready: str = "Paste a link above") -> dict:
+def idle(seconds: float, *args: str, ready: str = "No downloads yet.") -> dict:
     tui = Tui(*args)
     tui.wait_for(ready)
     time.sleep(2.0)

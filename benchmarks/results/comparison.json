@@ -1,0 +1,87 @@
+{
+  "platform": "macOS-15.8.3-arm64-arm-64bit",
+  "machine": "arm64",
+  "runs": 5,
+  "terminal": "120x46",
+  "mode": "warm filesystem and bytecode; release Rust build",
+  "python": {
+    "first_frame_ms": 1146.1,
+    "idle_rss_mib": 43.8906,
+    "idle_cpu_percent_one_core": 0.986,
+    "idle_terminal_bytes_per_s": 523.5449,
+    "version_ms": 191.20000000000002,
+    "startup_samples_ms": [
+      1262.4,
+      1074.72,
+      1102.42,
+      1184.55,
+      1146.1
+    ],
+    "convert_mkv_samples_s": [
+      0.4079537910001818,
+      0.3826342499960447,
+      0.37447095799143426,
+      0.3976703749940498,
+      0.41301762500370387
+    ],
+    "convert_mkv_s": 0.3977,
+    "convert_webm_samples_s": [
+      5.018259207994561,
+      5.310831875001895,
+      5.120447999986936,
+      5.007904250000138,
+      5.000350583999534
+    ],
+    "convert_webm_s": 5.0183,
+    "convert_mp3_samples_s": [
+      0.44765566701244097,
+      0.42945504099770915,
+      0.47488570799760055,
+      0.4753876670001773,
+      0.4390512079990003
+    ],
+    "convert_mp3_s": 0.4477
+  },
+  "rust": {
+    "first_frame_ms": 17.8,
+    "idle_rss_mib": 4.4375,
+    "idle_cpu_percent_one_core": 0.0,
+    "idle_terminal_bytes_per_s": 0.0,
+    "version_ms": 16.2,
+    "startup_samples_ms": [
+      22.19,
+      15.35,
+      17.09,
+      20.92,
+      17.83
+    ],
+    "convert_mkv_samples_s": [
+      0.32152487500570714,
+      0.2545029169996269,
+      0.25946075000683777,
+      0.25601220900716726,
+      0.2526013330061687
+    ],
+    "convert_mkv_s": 0.256,
+    "convert_webm_samples_s": [
+      4.816428999998607,
+      5.185543250001501,
+      5.242413083004067,
+      5.112156457995297,
+      4.878241750004236
+    ],
+    "convert_webm_s": 5.1122,
+    "convert_mp3_samples_s": [
+      0.34455191700544674,
+      0.35383508300583344,
+      0.36391341700800695,
+      0.3574161670112517,
+      0.46957016599480994
+    ],
+    "convert_mp3_s": 0.3574
+  },
+  "rust_binary_mib": 2.12908935546875,
+  "rust_executable_sha256": "3818a1d6da9288b22d6acb00fe5a52ab78ef812577a0132e6d088f2476733f61",
+  "python_baseline_commit": "c02f603a42568926429caebca0293465ac29be79",
+  "ffmpeg": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers"
+}

@@ -1,0 +1,8 @@
+{
+  "first_frame_s": 0.197,
+  "rss_after_start_mb": 44.4,
+  "idle_cpu_pct": 1.6,
+  "idle_bytes_to_terminal_per_s": 531,
+  "rss_mb": 44.2,
+  "gingertea_version_s": 0.035
+}

@@ -19,3 +19,6 @@ gingertea_*.svg
 design/
 design-qa.md
 .cursor/hooks/state/
+
+# Rust build artifacts
+/target/

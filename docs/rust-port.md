@@ -326,3 +326,22 @@ without changing saved theme identifiers, and display order remains alphabetical
 The layout check verifies exact labels/order and the absence of dark preview
 backings while previewing a light palette; full/compact picker checks and Clippy
 also pass.
+
+
+## Playlist thumbnail restoration
+
+The Rust probe handler only looked for `thumbnail`; flat playlists often expose
+`thumbnails` instead, so the renderer received no image and retained its play
+icon. Thumbnail URL selection now accepts the image list, preferring a small
+widescreen JPEG as the Python implementation did, and keeps alternatives plus
+images from the first playlist entries. It tries up to four candidates on the
+existing background worker and retains generation checks against stale results.
+HTTP image reads use a browser-style user agent and an eight-second I/O timeout.
+FFmpeg fits/crops the image into the existing preview without stretching it.
+
+Verification: `benchmarks/thumbnail_check.py` serves a real image locally and
+checks 306 colored half-block terminal cells in four cases: single-video URL,
+playlist image list, item-image fallback and a failed URL followed by a valid
+image. All pass, along with 29 Rust tests, Clippy and the release build. Live
+remote images still depend on their host being reachable; no live YouTube request
+is needed for this regression check.

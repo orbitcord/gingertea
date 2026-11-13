@@ -1,0 +1,10 @@
+{
+  "passed": [
+    "Playlist thumbnails list",
+    "Playlist first-item fallback",
+    "Unavailable image falls back",
+    "Single video thumbnail"
+  ],
+  "count": 4,
+  "rendered_cells_per_preview": 306
+}

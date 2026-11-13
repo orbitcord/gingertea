@@ -767,13 +767,21 @@ fn run_ffmpeg(
 }
 pub fn thumbnail(url: &str) -> Result<Vec<Vec<(u8, u8, u8)>>> {
     let mut cmd = command("ffmpeg");
+    if url.starts_with("http://") || url.starts_with("https://") {
+        cmd.args([
+            "-rw_timeout",
+            "8000000",
+            "-user_agent",
+            "Mozilla/5.0 gingertea",
+        ]);
+    }
     cmd.args([
         "-v",
         "error",
         "-i",
         url,
         "-vf",
-        "scale=36:18",
+        "scale=36:18:force_original_aspect_ratio=increase,crop=36:18",
         "-frames:v",
         "1",
         "-f",

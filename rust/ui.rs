@@ -533,12 +533,15 @@ impl App {
                                 "{} item(s). d Download · a Audio · c Options · Space Select",
                                 self.entries.len()
                             );
-                            if let Some(url) = info["thumbnail"].as_str() {
-                                let url = url.to_owned();
+                            let thumbnails = download::thumbnail_urls(&info);
+                            if !thumbnails.is_empty() {
                                 let tx = self.tx.clone();
                                 thread::spawn(move || {
-                                    if let Ok(t) = media::thumbnail(&url) {
-                                        let _ = tx.send(Message::Thumb(generation, t));
+                                    for url in thumbnails.iter().take(4) {
+                                        if let Ok(t) = media::thumbnail(url) {
+                                            let _ = tx.send(Message::Thumb(generation, t));
+                                            break;
+                                        }
                                     }
                                 });
                             }

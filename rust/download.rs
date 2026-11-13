@@ -27,6 +27,51 @@ pub fn probe(input: &str, s: &Settings) -> Result<Value> {
     c.arg("--").arg(url);
     Ok(serde_json::from_str(&media::capture(c)?)?)
 }
+/// Prefer a small widescreen image, then keep alternatives for failed URLs.
+pub fn thumbnail_urls(info: &Value) -> Vec<String> {
+    fn append(info: &Value, urls: &mut Vec<String>) {
+        let mut candidates = info["thumbnails"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|thumb| {
+                let url = thumb["url"].as_str()?.trim();
+                if url.is_empty() {
+                    return None;
+                }
+                let width = media::number(&thumb["width"]);
+                let height = media::number(&thumb["height"]);
+                let wide = width >= 300. && height > 0. && (width / height - 16. / 9.).abs() < 0.1;
+                Some((!wide, url.contains(".webp"), width as u64, url.to_owned()))
+            })
+            .collect::<Vec<_>>();
+        candidates.sort();
+        let alternatives = candidates.into_iter().map(|(_, _, _, url)| url).chain(
+            info["thumbnail"]
+                .as_str()
+                .filter(|url| !url.trim().is_empty())
+                .map(str::to_owned),
+        );
+        for url in alternatives {
+            let url = if url.starts_with("//") {
+                format!("https:{url}")
+            } else {
+                url
+            };
+            if !urls.contains(&url) {
+                urls.push(url);
+            }
+        }
+    }
+    let mut urls = Vec::new();
+    append(info, &mut urls);
+    if let Some(entries) = info["entries"].as_array() {
+        for entry in entries.iter().take(3) {
+            append(entry, &mut urls);
+        }
+    }
+    urls
+}
 pub fn normalize(input: &str) -> String {
     let text = input.trim();
     if !text.contains("://") && !text.starts_with("ytsearch") {
@@ -404,6 +449,25 @@ pub fn sites() -> Result<Vec<String>> {
 }
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn playlist_thumbnail_candidates_and_item_fallback() {
+        let info = serde_json::json!({"thumbnails":[
+            {"url":"https://image.test/large.jpg","width":1280,"height":720},
+            {"url":"https://image.test/small.webp","width":320,"height":180},
+            {"url":"https://image.test/small.jpg","width":320,"height":180}
+        ],"entries":[{"thumbnails":[{"url":"https://image.test/item.jpg"}]}]});
+        let urls = super::thumbnail_urls(&info);
+        assert_eq!(urls[0], "https://image.test/small.jpg");
+        assert!(urls.contains(&"https://image.test/item.jpg".to_owned()));
+        assert_eq!(
+            super::thumbnail_urls(
+                &serde_json::json!({"entries":[{"thumbnail":"//image.test/fallback.jpg"}]})
+            ),
+            vec!["https://image.test/fallback.jpg"]
+        );
+        assert!(super::thumbnail_urls(&serde_json::json!({"thumbnail":""})).is_empty());
+    }
+
     use super::*;
     #[test]
     fn mapping() {

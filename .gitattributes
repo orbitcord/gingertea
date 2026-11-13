@@ -1,0 +1,8 @@
+# The shipped application is Rust; keep its source visible in language statistics.
+rust/**/*.rs linguist-language=Rust linguist-detectable=true
+
+# Historical Python implementation, reference tests, and migration benchmarks.
+# These remain available for comparisons but are not the production app.
+src/gingertea/** linguist-detectable=false
+tests/*.py linguist-detectable=false
+benchmarks/** linguist-detectable=false

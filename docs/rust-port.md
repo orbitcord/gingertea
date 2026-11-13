@@ -182,3 +182,21 @@ conversion, history/settings, browser and JPEG XL). After work and transient
 messages settled, the restored UI emitted 0 bytes/s with no measurable idle CPU
 increase over three seconds; RSS in that test was 5.5 MiB. The corrected release
 build was opened in a fresh local Terminal window.
+
+## Theme picker selection fix
+
+Full-size arrow/Enter and mouse confirmation reproduced successfully in isolation.
+A compact window exposed a real issue: the picker truncated its rows without
+scrolling, so the saved/selected theme could be invisible. The picker now uses a
+scrolling Ratatui list with persistent viewport offset, an explicit selection
+marker and live palette preview. Arrows, Tab/Shift+Tab, Home/End and j/k navigate;
+Enter/Space or clicking saves. Escape restores the palette from before the picker
+opened. Hover previews without writing settings. Save errors stay in the picker
+instead of propagating out of the application. Repeated key events are accepted.
+
+`benchmarks/theme_check.py` verifies selected-row visibility, no premature save,
+Escape rollback, Space confirmation, mouse confirmation and Tab/Enter confirmation
+at 120×46 and 120×12. All 12 checks pass; results are in
+`benchmarks/results/themes.json`. Rust tests, formatting and warning-free Clippy
+also pass. Risks: the native Terminal window cannot be inspected through computer
+use in this environment; interaction verification uses controlled PTY sessions.

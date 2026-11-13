@@ -1,0 +1,24 @@
+[
+  {
+    "height": 46,
+    "passed": [
+      "selected row scrolls into view",
+      "preview does not save",
+      "Esc restores",
+      "Space saves",
+      "mouse saves",
+      "Tab/Enter saves"
+    ]
+  },
+  {
+    "height": 12,
+    "passed": [
+      "selected row scrolls into view",
+      "preview does not save",
+      "Esc restores",
+      "Space saves",
+      "mouse saves",
+      "Tab/Enter saves"
+    ]
+  }
+]

@@ -70,7 +70,8 @@ Click tabs, buttons, shortcut chips, fields and options directly. In forms, Tab
 moves between fields, arrows choose formats/quality or cycle values, typing edits
 text, Ctrl+U clears it, Ctrl+S saves or runs, and Esc closes. Settings include the
 output directory, filename template, browser cookies (off by default),
-parallelism (1–4), and motion; press `t` for the theme picker. Configuration, history and
+parallelism (1–4), and motion; press `t` for the theme picker. Arrows or Tab preview
+themes, Enter/Space or a click saves, and Esc cancels. Configuration, history and
 playlist archives use the Python app's existing platform directories.
 
 Local formats retain the original video/audio/image target tables. Image output

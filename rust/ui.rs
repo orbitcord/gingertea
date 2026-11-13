@@ -143,6 +143,8 @@ struct App {
     return_page: Page,
     choosing: bool,
     theme_picker: Option<usize>,
+    theme_original: Option<String>,
+    theme_scroll: usize,
     toast: Option<Instant>,
     last_status: String,
     backend_version: String,
@@ -214,6 +216,8 @@ pub fn run(settings: Settings, initial: String, cancel: Cancel) -> Result<()> {
         return_page: Page::Download,
         choosing: false,
         theme_picker: None,
+        theme_original: None,
+        theme_scroll: 0,
         toast: None,
         last_status: String::new(),
         backend_version: String::new(),
@@ -283,7 +287,7 @@ pub fn run(settings: Settings, initial: String, cancel: Cancel) -> Result<()> {
             .unwrap_or(Duration::from_millis(40));
         if event::poll(wait)? {
             match event::read()? {
-                Event::Key(k) if k.kind == KeyEventKind::Press => {
+                Event::Key(k) if matches!(k.kind, KeyEventKind::Press | KeyEventKind::Repeat) => {
                     if app.key(k)? {
                         break;
                     }
@@ -338,6 +342,25 @@ impl App {
             self.choosing = false;
             self.enqueue(Choice::default());
         }
+    }
+    fn preview_theme(&mut self, index: usize) {
+        let index = index.min(THEMES.len() - 1);
+        self.theme_picker = Some(index);
+        self.settings.theme = THEMES[index].into();
+        self.dirty = true;
+    }
+    fn finish_theme(&mut self, save: bool) {
+        if save {
+            if let Err(error) = self.settings.save() {
+                self.status = format!("Could not save theme: {error}");
+                return;
+            }
+        } else if let Some(original) = self.theme_original.as_ref() {
+            self.settings.theme = original.clone();
+        }
+        self.theme_original = None;
+        self.theme_picker = None;
+        self.dirty = true;
     }
     fn busy(&self) -> bool {
         self.loading_video.is_some()
@@ -816,14 +839,16 @@ impl App {
         }
         if let Some(selected) = self.theme_picker {
             match k.code {
-                KeyCode::Esc => self.theme_picker = None,
-                KeyCode::Up => self.theme_picker = Some(selected.saturating_sub(1)),
-                KeyCode::Down => self.theme_picker = Some((selected + 1).min(THEMES.len() - 1)),
-                KeyCode::Enter => {
-                    self.settings.theme = THEMES[selected].into();
-                    self.settings.save()?;
-                    self.theme_picker = None;
+                KeyCode::Esc => self.finish_theme(false),
+                KeyCode::Enter | KeyCode::Char(' ') => self.finish_theme(true),
+                KeyCode::Up | KeyCode::Left | KeyCode::BackTab | KeyCode::Char('k') => {
+                    self.preview_theme((selected + THEMES.len() - 1) % THEMES.len())
                 }
+                KeyCode::Down | KeyCode::Right | KeyCode::Tab | KeyCode::Char('j') => {
+                    self.preview_theme((selected + 1) % THEMES.len())
+                }
+                KeyCode::Home => self.preview_theme(0),
+                KeyCode::End => self.preview_theme(THEMES.len() - 1),
                 _ => (),
             }
             return Ok(false);
@@ -1047,6 +1072,8 @@ impl App {
                 self.history = state::history()
             }
             KeyCode::Char('t') => {
+                self.theme_original = Some(self.settings.theme.clone());
+                self.theme_scroll = 0;
                 self.theme_picker = Some(
                     THEMES
                         .iter()

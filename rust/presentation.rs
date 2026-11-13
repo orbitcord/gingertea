@@ -591,29 +591,60 @@ impl App {
                     .style(Style::default().bg(p.background)),
                 popup,
             );
-            let rect = inset(popup, 3, 2);
+            let rect = inset(popup, 3, 1);
             f.render_widget(
-                Paragraph::new("Themes · Enter Choose · Esc Close").bold(),
+                Paragraph::new("Themes · live preview").bold(),
                 Rect::new(rect.x, rect.y, rect.width, 1),
             );
-            for (i, name) in THEMES
+            let body = Rect::new(
+                rect.x,
+                rect.y + 2,
+                rect.width,
+                rect.height.saturating_sub(3),
+            );
+            let rows = THEMES
                 .iter()
-                .enumerate()
-                .take(rect.height.saturating_sub(2) as usize)
-            {
-                let r = Rect::new(rect.x, rect.y + 2 + i as u16, rect.width, 1);
-                f.render_widget(
-                    Paragraph::new(format!("  {name}")).style(if i == selected {
-                        Style::default().bg(p.primary).fg(p.background)
-                    } else {
-                        Style::default().fg(banner::colors(name).primary)
-                    }),
-                    r,
+                .map(|name| {
+                    ListItem::new(format!(
+                        "{} {name}",
+                        if self.theme_original.as_deref() == Some(*name) {
+                            "✓"
+                        } else {
+                            " "
+                        }
+                    ))
+                })
+                .collect::<Vec<_>>();
+            let mut state = ListState::default()
+                .with_offset(self.theme_scroll)
+                .with_selected(Some(selected));
+            f.render_stateful_widget(
+                List::new(rows)
+                    .highlight_symbol("› ")
+                    .highlight_style(Style::default().bg(p.primary).fg(p.background).bold()),
+                body,
+                &mut state,
+            );
+            let offset = state.offset();
+            self.theme_scroll = offset;
+            for row in 0..body.height.min(THEMES.len().saturating_sub(offset) as u16) {
+                self.hit(
+                    Rect::new(body.x, body.y + row, body.width, 1),
+                    UiAction::Theme(offset + row as usize),
                 );
-                self.hit(r, UiAction::Theme(i));
             }
+            f.render_widget(
+                Paragraph::new(if self.status.starts_with("Could not save theme:") {
+                    self.status.as_str()
+                } else {
+                    "↑↓ / Tab move · Enter save · Esc cancel"
+                })
+                .style(Style::default().fg(p.muted)),
+                Rect::new(rect.x, rect.bottom().saturating_sub(1), rect.width, 1),
+            );
         }
     }
+
     fn draw_video(
         &mut self,
         f: &mut Frame,
@@ -1916,6 +1947,9 @@ impl App {
             .map(|(_, a)| a.clone());
         if event.kind == MouseEventKind::Moved {
             if self.hovered != action {
+                if let Some(UiAction::Theme(index)) = action.as_ref() {
+                    self.preview_theme(*index);
+                }
                 self.hovered = action;
                 self.dirty = true;
             }
@@ -1991,9 +2025,8 @@ impl App {
                 }
             }
             UiAction::Theme(i) => {
-                self.settings.theme = THEMES[i].into();
-                self.settings.save()?;
-                self.theme_picker = None;
+                self.preview_theme(i);
+                self.finish_theme(true);
             }
             UiAction::ChoosePlaylist => self.download_selection(),
             UiAction::PlaylistFirst => self.playlist_typing = true,

@@ -1,5 +1,11 @@
 # Rust migration
 
+The 0.3.0 release adds native PyPI wheels and standalone executables for Windows,
+Linux, and Apple Silicon and Intel Macs. The release pipeline validates upgrades
+from 0.2.0, runs the platform test suites, and publishes only after checks pass.
+See [the release notes](releases/0.3.0.md) for installation and migration details.
+The entries below record the development work before this release.
+
 Branch: codex/rust-port. The existing Python implementation remains as a baseline;
 the new executable has no dependency on gingertea's Python modules. yt-dlp remains
 an independently installed external backend, with FFmpeg/FFprobe and Deno.

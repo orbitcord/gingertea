@@ -1,3 +1,6 @@
+> Historical reference for the Python app through version 0.2.0. For current
+> installation and upgrade instructions, see the [README](../README.md).
+
 <pre>
  ██████╗ ██╗███╗   ██╗ ██████╗ ███████╗██████╗ ████████╗███████╗ █████╗
 ██╔════╝ ██║████╗  ██║██╔════╝ ██╔════╝██╔══██╗╚══██╔══╝██╔════╝██╔══██╗

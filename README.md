@@ -1,14 +1,45 @@
 # gingertea
 
-Download and convert videos, audio and images in your terminal. This branch ports
-the application to Rust, using Ratatui for the interface and independent yt-dlp,
+Download and convert videos, audio and images in your terminal. Version 0.3.0 uses
+Rust and Ratatui for the interface and independent yt-dlp,
 FFmpeg/FFprobe and Deno executables for media processing. The original terminal
 design is retained: large shaded wordmark, tea palettes, two source tabs, rounded
 input, open section rules, thumbnail/metadata card, solid action buttons and
 centered shortcut chips. Dialogs follow the original settings and four-panel
 conversion layouts.
 
-## Build and run
+## Install and update
+
+Install a native package with uv or pipx:
+
+```sh
+uv tool install gingertea
+# or: pipx install gingertea
+gingertea setup
+gingertea
+```
+
+Existing users can upgrade from the Python version:
+
+```sh
+uv tool upgrade gingertea
+# or: pipx upgrade gingertea
+gingertea --version
+gingertea setup
+```
+
+PyPI wheels contain the Rust executable for Linux x86-64, Windows x86-64, and
+Apple Silicon and Intel Macs. Python 3.10+ is required by the package manager;
+the interface runs natively. yt-dlp and Deno install alongside the app. `setup`
+finds or downloads FFmpeg and other missing tools. Existing settings, download
+history, and playlist archives are reused. Optional image tools are listed below.
+
+Standalone executables are also available from
+[GitHub Releases](https://github.com/orbitcord/gingertea/releases). Replace an
+existing standalone executable to update it. `gingertea update` updates yt-dlp;
+use your package manager to update gingertea itself.
+
+## Build and run from source
 
 ```sh
 cargo build --release --locked
@@ -99,7 +130,7 @@ cargo test --locked                 # requires FFmpeg/FFprobe
 cargo build --release --locked
 # The following use the retained Python environment for baseline/testing only:
 uv sync --locked
-.venv/bin/python benchmarks/compare.py --runs 5
+PYTHONPATH=src .venv/bin/python benchmarks/compare.py --runs 5
 .venv/bin/python benchmarks/smoke.py
 .venv/bin/python benchmarks/motion_check.py
 .venv/bin/python benchmarks/design_check.py
@@ -112,9 +143,10 @@ idle UI overhead from real conversion time. The smoke check uses a localhost
 server rather than downloading public internet videos.
 
 The old Python documentation is retained in [docs/python-reference.md](docs/python-reference.md).
-The Rust branch is not published to PyPI; updating the app itself means installing
-a new Rust release/build. Browser login, live site changes, all optional codecs,
-and Windows/Linux terminal behavior need platform testing before a release.
+The release checks build and test the Rust app and native wheels on Windows,
+Linux, and both Mac architectures, including an upgrade from the Python release.
+Browser login, live site behavior, and optional codec tools depend on your machine
+and installed media tools.
 
 ## License
 

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from gingertea import config
@@ -13,4 +15,5 @@ def isolated_config(tmp_path, monkeypatch):
     monkeypatch.setenv("GINGERTEA_NO_UPDATE_CHECK", "1")
     monkeypatch.setenv("GINGERTEA_NO_FFMPEG_FETCH", "1")
     monkeypatch.setenv("GINGERTEA_NO_CLIPBOARD", "1")
+    monkeypatch.setenv("PYTHONPATH", str(Path(__file__).resolve().parents[1] / "src"))
     return tmp_path

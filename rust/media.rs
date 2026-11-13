@@ -136,6 +136,20 @@ pub fn executable(name: &str) -> PathBuf {
             return old;
         }
     }
+    // PyPI installs yt-dlp and Deno beside the native executable. uv/pipx expose
+    // gingertea through a symlink without adding that environment to PATH.
+    if let Ok(app) = std::env::current_exe()
+        && let Some(bin) = app.parent()
+    {
+        let sibling = bin.join(if cfg!(windows) {
+            format!("{name}.exe")
+        } else {
+            name.into()
+        });
+        if sibling.is_file() {
+            return sibling;
+        }
+    }
     name.into()
 }
 pub fn platform_key() -> String {
@@ -182,11 +196,11 @@ pub fn shutdown_workers() {
         }
     }
 }
-fn configure_process(cmd: &mut Command) {
+fn configure_process(_cmd: &mut Command) {
     #[cfg(unix)]
     {
         use std::os::unix::process::CommandExt;
-        cmd.process_group(0);
+        _cmd.process_group(0);
     }
 }
 fn kill_tree(child: &mut std::process::Child) {

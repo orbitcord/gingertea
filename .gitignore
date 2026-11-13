@@ -22,3 +22,4 @@ design-qa.md
 
 # Rust build artifacts
 /target/
+/assets/

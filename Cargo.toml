@@ -2,6 +2,7 @@
 name = "gingertea"
 version = "0.3.0"
 edition = "2024"
+rust-version = "1.88"
 description = "Download and convert media in your terminal"
 license = "MIT"
 

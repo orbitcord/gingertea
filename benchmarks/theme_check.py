@@ -57,12 +57,12 @@ def main():
                 app.settle(0.15)
                 rows = app.screen().splitlines()
                 y, row = next(
-                    (i, row) for i, row in enumerate(rows) if "›" in row and "masala-chai" in row
+                    (i, row) for i, row in enumerate(rows) if "›" in row and "dusk" in row
                 )
-                x = row.index("masala-chai") + 2
+                x = row.index("dusk") + 2
                 app.send(f"\x1b[<0;{x + 1};{y + 1}M\x1b[<0;{x + 1};{y + 1}m")
                 app.settle(0.15)
-                assert tomllib.loads(path.read_text())["theme"] == "masala-chai", (
+                assert tomllib.loads(path.read_text())["theme"] == "dusk", (
                     "Mouse did not save theme"
                 )
                 assert "Themes · live preview" not in app.screen()
@@ -70,7 +70,7 @@ def main():
                 app.wait("Themes · live preview")
                 app.send("\t\r")
                 app.settle(0.15)
-                assert tomllib.loads(path.read_text())["theme"] == "matcha", (
+                assert tomllib.loads(path.read_text())["theme"] == "earl-grey", (
                     "Tab/Enter did not save theme"
                 )
                 checks.append(

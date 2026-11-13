@@ -33,15 +33,15 @@ use std::{
     time::{Duration, Instant},
 };
 const THEMES: &[&str] = &[
-    "masala-chai",
-    "matcha",
+    "dusk",
     "earl-grey",
-    "hibiscus",
-    "tea-house",
-    "tea-house-dark",
     "gingertea",
     "gingertea-light",
-    "dusk",
+    "hibiscus",
+    "masala-chai",
+    "matcha",
+    "tea-house",
+    "tea-house-dark",
     "tide",
 ];
 #[derive(Clone)]

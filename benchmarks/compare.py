@@ -98,12 +98,27 @@ class Terminal:
         return count
 
     def close(self):
+        # Release the PTY before waiting: reference TUIs can block writing shutdown
+        # output if the master is no longer drained during another app's tests.
+        os.close(self.fd)
         try:
             os.kill(self.pid, signal.SIGTERM)
         except ProcessLookupError:
             pass
+        deadline = time.monotonic() + 1
+        while time.monotonic() < deadline:
+            try:
+                waited, _ = os.waitpid(self.pid, os.WNOHANG)
+            except ChildProcessError:
+                return
+            if waited:
+                return
+            time.sleep(.01)
+        try:
+            os.kill(self.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
         os.waitpid(self.pid, 0)
-        os.close(self.fd)
 
 
 def median(values):

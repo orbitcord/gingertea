@@ -1,0 +1,110 @@
+{
+  "shadow": [
+    " ██████╗ ██╗███╗   ██╗ ██████╗ ███████╗██████╗ ████████╗███████╗ █████╗ ",
+    "██╔════╝ ██║████╗  ██║██╔════╝ ██╔════╝██╔══██╗╚══██╔══╝██╔════╝██╔══██╗",
+    "██║  ███╗██║██╔██╗ ██║██║  ███╗█████╗  ██████╔╝   ██║   █████╗  ███████║",
+    "██║   ██║██║██║╚██╗██║██║   ██║██╔══╝  ██╔══██╗   ██║   ██╔══╝  ██╔══██║",
+    "╚██████╔╝██║██║ ╚████║╚██████╔╝███████╗██║  ██║   ██║   ███████╗██║  ██║",
+    " ╚═════╝ ╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═╝"
+  ],
+  "big": [
+    " ████ █████ █   █  ████ █████ ████  █████ █████  ███  ",
+    "█ ░░░░ ░█░░░██  █░█ ░░░░█░░░░░█░░░█  ░█░░░█░░░░░█ ░░█ ",
+    "█░███   █░  █░█ █░█░███ ████  ████ ░  █░  ████  █████░",
+    "█░ ░█░  █░  █░ ██░█░ ░█░█░░░░ █░░█░   █░  █░░░░ █░░░█░",
+    " ███ ░█████ █░  █░ ███ ░█████ █░  █   █░  █████ █░  █░",
+    "  ░░░  ░░░░░ ░   ░  ░░░  ░░░░░ ░   ░   ░   ░░░░░ ░   ░"
+  ],
+  "themes": {
+    "gingertea": {
+      "primary": "#ff8700",
+      "secondary": "#ffaf5f",
+      "foreground": "#e4e4e4",
+      "background": "#121212",
+      "panel": "#303030",
+      "success": "#87d75f",
+      "error": "#ff5f5f"
+    },
+    "gingertea-light": {
+      "primary": "#d75f00",
+      "secondary": "#af5f00",
+      "foreground": "#1c1c1c",
+      "background": "#eeeeee",
+      "panel": "#d0d0d0",
+      "success": "#5f8700",
+      "error": "#d70000"
+    },
+    "dusk": {
+      "primary": "#af87ff",
+      "secondary": "#ff87d7",
+      "foreground": "#e8e4f0",
+      "background": "#16131f",
+      "panel": "#352e4d",
+      "success": "#87d7af",
+      "error": "#ff5f87"
+    },
+    "tide": {
+      "primary": "#5fafff",
+      "secondary": "#87d7ff",
+      "foreground": "#e1e9f2",
+      "background": "#0e1620",
+      "panel": "#263a52",
+      "success": "#87d7af",
+      "error": "#ff5f87"
+    },
+    "tea-house": {
+      "primary": "#5f5f00",
+      "secondary": "#af8700",
+      "foreground": "#262626",
+      "background": "#eeeeee",
+      "panel": "#d7d7d7",
+      "success": "#5f8700",
+      "error": "#af0000"
+    },
+    "tea-house-dark": {
+      "primary": "#afaf5f",
+      "secondary": "#d7af5f",
+      "foreground": "#e4e4d7",
+      "background": "#1c1c17",
+      "panel": "#3a3a2c",
+      "success": "#87af5f",
+      "error": "#ff8787"
+    },
+    "matcha": {
+      "primary": "#afd787",
+      "secondary": "#d7af5f",
+      "foreground": "#d7dfd7",
+      "background": "#1c2621",
+      "panel": "#344239",
+      "success": "#87d787",
+      "error": "#ff8787"
+    },
+    "earl-grey": {
+      "primary": "#afafd7",
+      "secondary": "#87afd7",
+      "foreground": "#d7d7df",
+      "background": "#1c1c26",
+      "panel": "#363642",
+      "success": "#87af87",
+      "error": "#ff8787"
+    },
+    "masala-chai": {
+      "primary": "#d7af5f",
+      "secondary": "#d7875f",
+      "foreground": "#e4e4e4",
+      "background": "#121212",
+      "panel": "#303030",
+      "success": "#87af87",
+      "error": "#ff8787"
+    },
+    "hibiscus": {
+      "primary": "#d787af",
+      "secondary": "#d7afaf",
+      "foreground": "#e4d7df",
+      "background": "#261c26",
+      "panel": "#443044",
+      "success": "#87af87",
+      "error": "#ff8787"
+    }
+  }
+}

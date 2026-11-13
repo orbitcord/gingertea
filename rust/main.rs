@@ -1,3 +1,4 @@
+mod banner;
 mod download;
 mod media;
 mod motion;

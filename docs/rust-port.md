@@ -39,8 +39,8 @@ compare a Rust UI-only measurement with a Python process including yt-dlp import
 
 ## Compatibility and remaining release validation
 
-The interface is implemented in Ratatui, with keyboard forms rather than Textual
-widgets and CSS. Clipboard operations use platform commands. JPEG XL and HEIC
+The interface is implemented in Ratatui, retaining the original Textual design
+through cell-based rendering, original branding assets and tea palette values. Clipboard operations use platform commands. JPEG XL and HEIC
 use optional native tools rather than Pillow, so metadata and encoded output are
 not guaranteed byte-for-byte equivalent. The Python environment is retained only
 for baseline measurements and reference tests.
@@ -140,3 +140,45 @@ Unix shebang. The motion-off check drains the remaining initial paint before its
 idle sample: readiness text can arrive before the footer bytes from that same
 paint. A separate reproduction confirmed those bytes were initial drawing, with
 zero output afterward. No product behavior was relaxed to satisfy these checks.
+
+## Original design restored
+
+The initial Rust port changed the presentation unnecessarily. The current build
+restores the original visual hierarchy instead of the compact boxed replacement:
+large centered carved wordmark, version/path status, Download/Convert files tabs,
+rounded source field, open Video/Downloads rules, unframed thumbnail and aligned
+metadata, solid action buttons, three-row download entries, and centered clickable
+shortcut chips. Original theme values and terminal glyphs are copied directly from
+the retained Python source into `rust/branding.json`, without a Python runtime
+requirement. Short terminals hide the banner, as in the original app.
+
+Settings uses the original human-facing folder/cookies/parallelism/filename form,
+with a single additional animation toggle. Convert restores the Format, Quality,
+Clip and Extras panels. History, supported sites, playlist selection and themes
+are modal pickers; the source workspace stays behind them. Playlist selection
+includes First N. Source tabs, footer chips, action buttons, fields and choices
+are mouse-operable. Ctrl+T switches source tabs; Tab leaves the focused source
+field so letter shortcuts work. The wordmark's character resolve animates the
+original glyph silhouette, keeping its footprint fixed, and job/paste feedback
+remains within the original surfaces.
+
+At 120×46 the original Python and restored Rust empty-workspace captures match
+on all 45 rows other than the version/status line. That line intentionally shows
+the Rust release version. The comparison checks full rows, not just the presence
+of the application name, and exercises the original-style tabs, settings, theme,
+history and sites dialogs. Reference captures and results are saved under
+`benchmarks/results/*design*` and `design-parity.json`. This verifies terminal
+text/layout; theme colors and logo shading are separately ported from source.
+
+The reference-test PTY cleanup now releases the master before waiting and uses a
+bounded termination wait, preventing shutdown output from blocking an unattended
+reference app. Escape-key test events are separated so they are not interpreted
+as Alt-key chords. These harness corrections do not relax the design assertions.
+
+Restoration validation completed: 23 Rust tests, warning-free Clippy, release
+build, the 45-row reference comparison, mouse/dialog acceptance, motion checks,
+and real-media smoke checks (downloads, playlists, safe publication, local
+conversion, history/settings, browser and JPEG XL). After work and transient
+messages settled, the restored UI emitted 0 bytes/s with no measurable idle CPU
+increase over three seconds; RSS in that test was 5.5 MiB. The corrected release
+build was opened in a fresh local Terminal window.

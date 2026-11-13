@@ -1,4 +1,5 @@
 use crate::{
+    banner::{self, TeaColors},
     download,
     media::{self, Cancel, Choice, FileInfo, Reporter},
     motion::{self, Motion},
@@ -7,8 +8,9 @@ use crate::{
 use anyhow::Result;
 use crossterm::{
     event::{
-        self, DisableBracketedPaste, EnableBracketedPaste, Event, KeyCode, KeyEvent, KeyEventKind,
-        KeyModifiers,
+        self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
+        Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent,
+        MouseEventKind,
     },
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
@@ -71,6 +73,7 @@ enum Message {
     Sites(Result<Vec<String>, String>),
     Thumb(u64, Vec<Vec<(u8, u8, u8)>>),
     Update(Result<(), String>),
+    BackendVersion(String),
 }
 #[derive(Clone, Copy, PartialEq)]
 enum Page {
@@ -90,6 +93,22 @@ struct Browser {
     dir: PathBuf,
     entries: Vec<PathBuf>,
     selected: usize,
+}
+#[derive(Clone, PartialEq)]
+enum UiAction {
+    Key(char),
+    Input,
+    Submit,
+    Close,
+    Field(usize),
+    Value(usize, String),
+    CancelJob(usize),
+    Select(usize),
+    Theme(usize),
+    ChoosePlaylist,
+    PlaylistFirst,
+    Retry,
+    Browser(usize),
 }
 struct App {
     settings: Settings,
@@ -119,17 +138,41 @@ struct App {
     loading_files: usize,
     loading_sites: bool,
     updating: bool,
+    hitboxes: Vec<(Rect, UiAction)>,
+    hovered: Option<UiAction>,
+    return_page: Page,
+    choosing: bool,
+    theme_picker: Option<usize>,
+    toast: Option<Instant>,
+    last_status: String,
+    backend_version: String,
+    probe_error: Option<String>,
+    quit_requested: bool,
+    folder_pick: bool,
+    playlist_first: String,
+    playlist_typing: bool,
+    playlist_backup: Vec<bool>,
 }
 struct TerminalGuard;
 impl Drop for TerminalGuard {
     fn drop(&mut self) {
         let _ = disable_raw_mode();
-        let _ = execute!(io::stdout(), DisableBracketedPaste, LeaveAlternateScreen);
+        let _ = execute!(
+            io::stdout(),
+            DisableBracketedPaste,
+            DisableMouseCapture,
+            LeaveAlternateScreen
+        );
     }
 }
 pub fn run(settings: Settings, initial: String, cancel: Cancel) -> Result<()> {
     enable_raw_mode()?;
-    execute!(io::stdout(), EnterAlternateScreen, EnableBracketedPaste)?;
+    execute!(
+        io::stdout(),
+        EnterAlternateScreen,
+        EnableBracketedPaste,
+        EnableMouseCapture
+    )?;
     let _guard = TerminalGuard;
     let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
     let (tx, rx) = mpsc::channel();
@@ -166,17 +209,57 @@ pub fn run(settings: Settings, initial: String, cancel: Cancel) -> Result<()> {
         loading_files: 0,
         loading_sites: false,
         updating: false,
+        hitboxes: Vec::new(),
+        hovered: None,
+        return_page: Page::Download,
+        choosing: false,
+        theme_picker: None,
+        toast: None,
+        last_status: String::new(),
+        backend_version: String::new(),
+        probe_error: None,
+        quit_requested: false,
+        folder_pick: false,
+        playlist_first: String::new(),
+        playlist_typing: false,
+        playlist_backup: Vec::new(),
     };
+    {
+        let tx = app.tx.clone();
+        thread::spawn(move || {
+            let mut cmd = media::command("yt-dlp");
+            cmd.arg("--version");
+            let _ = tx.send(Message::BackendVersion(
+                media::capture(cmd).unwrap_or_default().trim().to_owned(),
+            ));
+        });
+    }
     if !initial.is_empty() {
         app.load_input(initial)
     }
     let mut was_animating = false;
     loop {
-        if cancel.load(Ordering::Relaxed) {
+        if cancel.load(Ordering::Relaxed) || app.quit_requested {
             break;
         }
         app.messages();
         app.schedule();
+        if app.status != app.last_status {
+            app.last_status = app.status.clone();
+            app.toast = if app.status.starts_with("Paste a link") || app.status.contains("item(s)")
+            {
+                None
+            } else {
+                Some(Instant::now())
+            };
+        }
+        if app
+            .toast
+            .is_some_and(|at| at.elapsed() >= Duration::from_secs(3))
+        {
+            app.toast = None;
+            app.dirty = true;
+        }
         app.motion.enabled =
             app.settings.animations && std::env::var_os("GINGERTEA_NO_ANIMATION").is_none();
         let interval = app.motion.interval(Instant::now(), app.busy());
@@ -217,6 +300,9 @@ pub fn run(settings: Settings, initial: String, cancel: Cancel) -> Result<()> {
                     }
                     app.dirty = true
                 }
+                Event::Mouse(event) => {
+                    app.mouse(event)?;
+                }
                 Event::Resize(..) => app.dirty = true,
                 _ => (),
             }
@@ -234,6 +320,25 @@ pub fn run(settings: Settings, initial: String, cancel: Cancel) -> Result<()> {
     Ok(())
 }
 impl App {
+    fn cancel_selection(&mut self) {
+        self.choosing = false;
+        for (e, selected) in self.entries.iter_mut().zip(&self.playlist_backup) {
+            e.selected = *selected;
+        }
+    }
+    fn download_selection(&mut self) {
+        if let Ok(n) = self.playlist_first.parse::<usize>()
+            && n > 0
+        {
+            for (i, e) in self.entries.iter_mut().enumerate() {
+                e.selected = i < n;
+            }
+        }
+        if self.entries.iter().any(|e| e.selected) {
+            self.choosing = false;
+            self.enqueue(Choice::default());
+        }
+    }
     fn busy(&self) -> bool {
         self.loading_video.is_some()
             || self.loading_files > 0
@@ -270,12 +375,12 @@ impl App {
                 let _ = tx.send(Message::Files(result));
             });
             self.input.clear();
-            self.editing = false;
         } else {
             self.page = Page::Download;
             self.input = trimmed.into();
             self.thumb = None;
             self.info = None;
+            self.probe_error = None;
             self.entries.clear();
             self.generation += 1;
             let generation = self.generation;
@@ -284,7 +389,6 @@ impl App {
             let s = self.settings.clone();
             let input = self.input.clone();
             self.status = "Getting video details…".into();
-            self.editing = false;
             thread::spawn(move || {
                 let r = download::probe(&input, &s).map_err(|e| format!("{e:#}"));
                 let _ = tx.send(Message::Probe(generation, r));
@@ -349,7 +453,10 @@ impl App {
                             }
                             self.info = Some(info);
                         }
-                        Err(e) => self.status = e,
+                        Err(e) => {
+                            self.probe_error = Some(e.clone());
+                            self.status = e;
+                        }
                     }
                 }
                 Message::Files(result) => {
@@ -407,6 +514,7 @@ impl App {
                         self.thumb = Some(t)
                     }
                 }
+                Message::BackendVersion(version) => self.backend_version = version,
                 Message::Update(r) => {
                     self.updating = false;
                     self.status = match r {
@@ -586,29 +694,32 @@ impl App {
         self.form = Some(Form {
             title: "Convert options · ↑↓ field · ←→ choices · Ctrl+U clear · Ctrl+S Run".into(),
             rows,
-            selected: 0,
+            selected: 1,
             purpose: "convert".into(),
         });
     }
     fn settings_form(&mut self) {
         let value = serde_json::to_value(&self.settings).unwrap();
-        let rows = value
-            .as_object()
-            .unwrap()
-            .iter()
-            .map(|(k, v)| {
-                (
-                    k.clone(),
-                    if v.is_string() {
-                        v.as_str().unwrap().into()
-                    } else {
-                        v.to_string()
-                    },
-                )
-            })
-            .collect();
+        let rows = [
+            "download_dir",
+            "cookies_browser",
+            "parallel",
+            "filename_template",
+            "animations",
+        ]
+        .iter()
+        .map(|key| {
+            let v = &value[*key];
+            (
+                key.to_string(),
+                v.as_str()
+                    .map(str::to_owned)
+                    .unwrap_or_else(|| v.to_string()),
+            )
+        })
+        .collect();
         self.form = Some(Form {
-            title: "Settings · ↑↓ field · Ctrl+U clear · Ctrl+S Save".into(),
+            title: "Settings".into(),
             rows,
             selected: 0,
             purpose: "settings".into(),
@@ -669,7 +780,7 @@ impl App {
                 self.enqueue(c);
             } else {
                 let old = serde_json::to_value(&self.settings)?;
-                let mut v = json!({});
+                let mut v = old.clone();
                 for (k, s) in &form.rows {
                     v[k] = if old[k].is_boolean() {
                         Value::Bool(s.parse()?)
@@ -703,81 +814,160 @@ impl App {
         if self.browser.is_some() {
             return self.browser_key(k);
         }
+        if let Some(selected) = self.theme_picker {
+            match k.code {
+                KeyCode::Esc => self.theme_picker = None,
+                KeyCode::Up => self.theme_picker = Some(selected.saturating_sub(1)),
+                KeyCode::Down => self.theme_picker = Some((selected + 1).min(THEMES.len() - 1)),
+                KeyCode::Enter => {
+                    self.settings.theme = THEMES[selected].into();
+                    self.settings.save()?;
+                    self.theme_picker = None;
+                }
+                _ => (),
+            }
+            return Ok(false);
+        }
+        if self.choosing {
+            if k.modifiers.contains(KeyModifiers::CONTROL) && k.code == KeyCode::Char('s') {
+                self.download_selection();
+                return Ok(false);
+            }
+            match k.code {
+                KeyCode::Esc => self.cancel_selection(),
+                KeyCode::Char(c) if c.is_ascii_digit() => {
+                    self.playlist_first.push(c);
+                    self.playlist_typing = true;
+                }
+                KeyCode::Backspace if self.playlist_typing => {
+                    self.playlist_first.pop();
+                }
+                KeyCode::Tab => self.playlist_typing = !self.playlist_typing,
+                KeyCode::Enter if self.playlist_typing => self.download_selection(),
+                KeyCode::Up => self.selected = self.selected.saturating_sub(1),
+                KeyCode::Down => {
+                    self.playlist_typing = false;
+                    self.selected = (self.selected + 1).min(self.entries.len().saturating_sub(1));
+                }
+                KeyCode::Char(' ') | KeyCode::Enter => {
+                    if let Some(e) = self.entries.get_mut(self.selected) {
+                        e.selected = !e.selected;
+                    }
+                }
+                _ => (),
+            }
+            return Ok(false);
+        }
+        if self.form.is_none()
+            && k.modifiers.contains(KeyModifiers::CONTROL)
+            && k.code == KeyCode::Char('t')
+        {
+            self.page = if self.page == Page::Files {
+                Page::Download
+            } else {
+                Page::Files
+            };
+            self.selected = 0;
+            return Ok(false);
+        }
+        if matches!(self.page, Page::History | Page::Sites) && k.code == KeyCode::Esc {
+            self.page = self.return_page;
+            self.input.clear();
+            self.editing = false;
+            return Ok(false);
+        }
+        if self.page == Page::History && !self.editing {
+            match k.code {
+                KeyCode::Char('s') => {
+                    if let Some(v) = self.filtered_history().get(self.selected) {
+                        open(Path::new(v["path"].as_str().unwrap_or("")), true);
+                    }
+                    return Ok(false);
+                }
+                KeyCode::Char('g') => {
+                    if let Some(v) = self.filtered_history().get(self.selected) {
+                        let url = v["url"].as_str().unwrap_or("").to_owned();
+                        self.page = self.return_page;
+                        self.load_input(url);
+                    }
+                    return Ok(false);
+                }
+                KeyCode::Char('c') => {
+                    if let Some(v) = self.filtered_history().get(self.selected) {
+                        clipboard_write(v["url"].as_str().unwrap_or(""));
+                    }
+                    return Ok(false);
+                }
+                KeyCode::Char('x') => {
+                    if let Some(v) = self.filtered_history().get(self.selected) {
+                        state::forget(v["id"].as_str().unwrap_or(""))?;
+                        self.history = state::history();
+                    }
+                    return Ok(false);
+                }
+                _ => (),
+            }
+        }
+
+        if self
+            .form
+            .as_ref()
+            .is_some_and(|form| form.purpose == "settings")
+            && k.modifiers.contains(KeyModifiers::CONTROL)
+            && k.code == KeyCode::Char('b')
+        {
+            self.folder_pick = true;
+            self.open_browser(std::env::current_dir()?)?;
+            return Ok(false);
+        }
         if self.form.is_some() {
             if k.modifiers.contains(KeyModifiers::CONTROL) && k.code == KeyCode::Char('s') {
                 self.submit_form()?;
                 return Ok(false);
             }
+            let selected = self.form.as_ref().unwrap().selected;
+            let key = self.form.as_ref().unwrap().rows[selected].0.clone();
+            let options = self.form_choices(&key);
+            if matches!(k.code, KeyCode::Left | KeyCode::Right)
+                || matches!(k.code, KeyCode::Up | KeyCode::Down)
+                    && ["format", "quality"].contains(&key.as_str())
+                || k.code == KeyCode::Enter && !options.is_empty()
+                || k.code == KeyCode::Char(' ') && !options.is_empty()
+            {
+                if !options.is_empty() {
+                    let current = &self.form.as_ref().unwrap().rows[selected].1;
+                    let i = options.iter().position(|v| v == current).unwrap_or(0);
+                    let backward = matches!(k.code, KeyCode::Left | KeyCode::Up);
+                    let next = if backward {
+                        (i + options.len() - 1) % options.len()
+                    } else {
+                        (i + 1) % options.len()
+                    };
+                    self.set_form_value(selected, options[next].clone());
+                }
+                return Ok(false);
+            }
+            let visible = self.visible_form_fields(self.form.as_ref().unwrap());
             let form = self.form.as_mut().unwrap();
             match k.code {
                 KeyCode::Esc => self.form = None,
-                KeyCode::Up => form.selected = form.selected.saturating_sub(1),
-                KeyCode::Down | KeyCode::Tab => {
-                    form.selected = (form.selected + 1) % form.rows.len()
+                KeyCode::Up | KeyCode::Down | KeyCode::Tab => {
+                    let i = visible
+                        .iter()
+                        .position(|i| *i == form.selected)
+                        .unwrap_or(0);
+                    let back = k.code == KeyCode::Up || k.modifiers.contains(KeyModifiers::SHIFT);
+                    form.selected = visible[if back {
+                        (i + visible.len() - 1) % visible.len()
+                    } else {
+                        (i + 1) % visible.len()
+                    }];
                 }
                 KeyCode::Char('u') if k.modifiers.contains(KeyModifiers::CONTROL) => {
-                    form.rows[form.selected].1.clear()
+                    form.rows[selected].1.clear()
                 }
                 KeyCode::Backspace => {
-                    form.rows[form.selected].1.pop();
-                }
-                KeyCode::Left | KeyCode::Right => {
-                    let (key, current) = &mut form.rows[form.selected];
-                    let choices: Vec<String> = match key.as_str() {
-                        "kind" => ["video", "audio", "image", "frames"]
-                            .map(String::from)
-                            .to_vec(),
-                        "format" => media::formats(
-                            &form
-                                .rows
-                                .iter()
-                                .find(|(k, _)| k == "kind")
-                                .map(|(_, v)| v.clone())
-                                .unwrap_or("video".into()),
-                        ),
-                        "quality" => [
-                            "best", "2160", "1440", "1080", "720", "480", "360", "320", "192",
-                            "128", "50", "10", "1", "0.1",
-                        ]
-                        .map(String::from)
-                        .to_vec(),
-                        "subtitles" | "subtitle_mode" => {
-                            ["off", "embed", "srt"].map(String::from).to_vec()
-                        }
-                        "sponsorblock" => ["off", "cut", "chapters"].map(String::from).to_vec(),
-                        "theme" => THEMES.iter().map(|s| s.to_string()).collect(),
-                        _ if current == "true" || current == "false" => {
-                            vec!["false".into(), "true".into()]
-                        }
-                        _ => Vec::new(),
-                    };
-                    if !choices.is_empty() {
-                        let (key, current) = &mut form.rows[form.selected];
-                        let changed_kind = key == "kind";
-                        let i = choices.iter().position(|v| v == current).unwrap_or(0);
-                        let next = if k.code == KeyCode::Left {
-                            (i + choices.len() - 1) % choices.len()
-                        } else {
-                            (i + 1) % choices.len()
-                        };
-                        *current = choices[next].clone();
-                        if changed_kind {
-                            let kind = current.clone();
-                            for (key, value) in &mut form.rows {
-                                if key == "format" {
-                                    *value = match kind.as_str() {
-                                        "audio" => "mp3",
-                                        "image" => "jpg",
-                                        "frames" => "png",
-                                        _ => "mp4",
-                                    }
-                                    .into();
-                                } else if key == "quality" {
-                                    *value = if kind == "frames" { "1" } else { "best" }.into();
-                                }
-                            }
-                        }
-                    }
+                    form.rows[selected].1.pop();
                 }
                 KeyCode::Char(c) => form.rows[form.selected].1.push(c),
                 _ => (),
@@ -786,6 +976,9 @@ impl App {
         }
         if self.editing {
             match k.code {
+                KeyCode::Down if matches!(self.page, Page::History | Page::Sites) => {
+                    self.editing = false
+                }
                 KeyCode::Esc | KeyCode::Tab => self.editing = false,
                 KeyCode::Enter => {
                     let input = self.input.clone();
@@ -815,17 +1008,23 @@ impl App {
             KeyCode::Esc | KeyCode::Char('/') => self.editing = true,
             KeyCode::Char('1') => {
                 self.page = Page::Download;
+                self.editing = true;
                 self.selected = 0;
                 self.input.clear()
             }
             KeyCode::Char('2') => {
                 self.page = Page::Files;
+                self.editing = true;
                 self.selected = 0;
                 self.input.clear()
             }
             KeyCode::Char('3') | KeyCode::Char('s') => self.settings_form(),
             KeyCode::Char('4') | KeyCode::Char('l') => {
+                if !matches!(self.page, Page::History | Page::Sites) {
+                    self.return_page = self.page;
+                }
                 self.page = Page::Sites;
+                self.editing = true;
                 self.input.clear();
                 self.selected = 0;
                 if self.sites.is_empty() {
@@ -838,18 +1037,22 @@ impl App {
                 }
             }
             KeyCode::Char('h') => {
+                if !matches!(self.page, Page::History | Page::Sites) {
+                    self.return_page = self.page;
+                }
                 self.page = Page::History;
+                self.editing = true;
                 self.input.clear();
                 self.selected = 0;
                 self.history = state::history()
             }
             KeyCode::Char('t') => {
-                let i = THEMES
-                    .iter()
-                    .position(|t| *t == self.settings.theme)
-                    .unwrap_or(0);
-                self.settings.theme = THEMES[(i + 1) % THEMES.len()].into();
-                self.settings.save()?;
+                self.theme_picker = Some(
+                    THEMES
+                        .iter()
+                        .position(|t| *t == self.settings.theme)
+                        .unwrap_or(0),
+                )
             }
             KeyCode::Char('p') => {
                 self.paused = !self.paused;
@@ -894,9 +1097,12 @@ impl App {
                 self.enqueue(c)
             }
             KeyCode::Char('e') => {
-                let any = self.entries.iter().any(|e| !e.selected);
-                for e in &mut self.entries {
-                    e.selected = any
+                if self.info.as_ref().is_some_and(|i| i["entries"].is_array()) {
+                    self.choosing = true;
+                    self.playlist_backup = self.entries.iter().map(|e| e.selected).collect();
+                    self.playlist_first.clear();
+                    self.playlist_typing = false;
+                    self.selected = 0;
                 }
             }
             KeyCode::Char(' ') => {
@@ -960,14 +1166,7 @@ impl App {
                     ));
                 });
             }
-            KeyCode::Tab => {
-                self.page = if self.page == Page::Download {
-                    Page::Files
-                } else {
-                    Page::Download
-                };
-                self.selected = 0
-            }
+            KeyCode::Tab => self.editing = true,
             _ => (),
         }
         Ok(false)
@@ -1010,7 +1209,20 @@ impl App {
     fn browser_key(&mut self, k: KeyEvent) -> Result<bool> {
         let b = self.browser.as_mut().unwrap();
         match k.code {
-            KeyCode::Esc => self.browser = None,
+            KeyCode::Char(' ') if self.folder_pick => {
+                let value = b.dir.to_string_lossy().into_owned();
+                if let Some(form) = &mut self.form
+                    && let Some(row) = form.rows.iter_mut().find(|(key, _)| key == "download_dir")
+                {
+                    row.1 = value;
+                }
+                self.browser = None;
+                self.folder_pick = false;
+            }
+            KeyCode::Esc => {
+                self.browser = None;
+                self.folder_pick = false;
+            }
             KeyCode::Up => b.selected = b.selected.saturating_sub(1),
             KeyCode::Down => b.selected = (b.selected + 1).min(b.entries.len().saturating_sub(1)),
             KeyCode::Enter => {
@@ -1030,392 +1242,14 @@ impl App {
         Ok(false)
     }
     fn draw(&mut self, f: &mut Frame) {
-        let area = f.area();
-        let (bg, fg, accent) = palette(&self.settings.theme);
-        let now = Instant::now();
-        let highlight = motion::mix(accent, fg, 0.85);
-        let mut header = vec![Span::raw(" ")];
-        header.extend(self.motion.logo(now).into_iter().map(|(c, bright)| {
-            Span::styled(
-                c.to_string(),
-                Style::default()
-                    .fg(if bright { highlight } else { accent })
-                    .bold(),
-            )
-        }));
-        header.push(Span::raw(
-            "  1 Download   2 Convert files   h History   l Sites   s Settings",
-        ));
-        f.render_widget(Block::default().style(Style::default().bg(bg).fg(fg)), area);
-        let layout = Layout::vertical([
-            Constraint::Length(3),
-            Constraint::Length(3),
-            Constraint::Min(4),
-            Constraint::Length(area.height.saturating_div(4).clamp(3, 9)),
-            Constraint::Length(3),
-            Constraint::Length(2),
-        ])
-        .split(area);
-        f.render_widget(
-            Paragraph::new(Line::from(header))
-                .block(Block::bordered())
-                .style(Style::default().fg(fg)),
-            layout[0],
-        );
-        let input_title = match self.page {
-            Page::Download => "Link or search",
-            Page::Files => "Drop file paths · f Browse",
-            Page::History => "Search history",
-            Page::Sites => "Search supported sites",
-        };
-        f.render_widget(
-            Paragraph::new(self.input.as_str()).block(
-                Block::bordered()
-                    .title(format!(
-                        "{input_title}{}",
-                        if self.editing { " · typing" } else { "" }
-                    ))
-                    .title_bottom(if self.loading_video.is_some() || self.loading_files > 0 {
-                        format!(" {} Reading… ", self.motion.spinner(now))
-                    } else {
-                        String::new()
-                    })
-                    .border_style(Style::default().fg(motion::mix(
-                        if self.editing {
-                            accent
-                        } else {
-                            Color::Rgb(75, 75, 75)
-                        },
-                        highlight,
-                        self.motion.input_strength(now),
-                    ))),
-            ),
-            layout[1],
-        );
-        if self.editing {
-            let width = layout[1].width.saturating_sub(3) as usize;
-            f.set_cursor_position((
-                layout[1].x + 1 + self.input.chars().count().min(width) as u16,
-                layout[1].y + 1,
-            ));
-        }
-        let rows: Vec<ListItem> = match self.page {
-            Page::Download => self
-                .entries
-                .iter()
-                .enumerate()
-                .map(|(i, e)| {
-                    ListItem::new(format!(
-                        "{} {:>3}  {}\n        {}",
-                        if e.selected { "✓" } else { " " },
-                        i + 1,
-                        e.title,
-                        e.detail
-                    ))
-                })
-                .collect(),
-            Page::Files => self
-                .files
-                .iter()
-                .map(|v| {
-                    ListItem::new(format!(
-                        "{}  · {} · {}",
-                        v.path.display(),
-                        v.media,
-                        duration(v.duration)
-                    ))
-                })
-                .collect(),
-            Page::History => self
-                .filtered_history()
-                .iter()
-                .map(|v| {
-                    ListItem::new(format!(
-                        "{}\n{}",
-                        v["title"].as_str().unwrap_or(""),
-                        v["path"].as_str().unwrap_or("")
-                    ))
-                })
-                .collect(),
-            Page::Sites => self
-                .sites
-                .iter()
-                .filter(|s| s.to_lowercase().contains(&self.input.to_lowercase()))
-                .map(|s| ListItem::new(s.as_str()))
-                .collect(),
-        };
-        let title = match self.page {
-            Page::Download => self
-                .info
-                .as_ref()
-                .and_then(|v| v["title"].as_str())
-                .unwrap_or("Videos"),
-            Page::Files => "Convert files · c Options · r Remove · f Browse",
-            Page::History => "History · Enter Open · d Download again · y Copy URL · r Forget",
-            Page::Sites => "Supported sites",
-        };
-        let mut state = ListState::default().with_selected(Some(self.selected));
-        let list_area =
-            if self.page == Page::Download && self.thumb.is_some() && layout[2].width >= 90 {
-                let chunks = Layout::horizontal([Constraint::Length(38), Constraint::Min(20)])
-                    .split(layout[2]);
-                if let Some(t) = &self.thumb {
-                    let lines = (0..18)
-                        .step_by(2)
-                        .map(|y| {
-                            Line::from(
-                                (0..36)
-                                    .map(|x| {
-                                        let top = t[y][x];
-                                        let bottom = t[y + 1][x];
-                                        Span::styled(
-                                            "▀",
-                                            Style::default()
-                                                .fg(Color::Rgb(top.0, top.1, top.2))
-                                                .bg(Color::Rgb(bottom.0, bottom.1, bottom.2)),
-                                        )
-                                    })
-                                    .collect::<Vec<_>>(),
-                            )
-                        })
-                        .collect::<Vec<_>>();
-                    f.render_widget(Paragraph::new(lines).block(Block::bordered()), chunks[0]);
-                }
-                chunks[1]
-            } else {
-                layout[2]
-            };
-        if rows.is_empty() {
-            f.render_widget(
-                Paragraph::new(match self.page {
-                    Page::Download => "No downloads yet. Paste a link, then choose Download.",
-                    Page::Files => "Drop files here, or press f to browse",
-                    Page::History => "No matching history",
-                    Page::Sites => "Loading supported sites…",
-                })
-                .block(Block::bordered().title(title).border_style(
-                    Style::default().fg(motion::mix(
-                        Color::Rgb(75, 75, 75),
-                        accent,
-                        self.motion.ready_strength(now),
-                    )),
-                )),
-                list_area,
-            );
-        } else {
-            f.render_stateful_widget(
-                List::new(rows)
-                    .block(
-                        Block::bordered()
-                            .title(title)
-                            .border_style(Style::default().fg(motion::mix(
-                                Color::Rgb(75, 75, 75),
-                                accent,
-                                self.motion.ready_strength(now),
-                            ))),
-                    )
-                    .highlight_style(Style::default().bg(accent).fg(bg))
-                    .highlight_symbol("› "),
-                list_area,
-                &mut state,
-            );
-        }
-        let jobs: Vec<_> = self
-            .jobs
-            .iter()
-            .rev()
-            .take(20)
-            .map(|j| {
-                let active = j.started && !j.done;
-                let icon = if j.done {
-                    if j.error { "✕" } else { "✓" }
-                } else if active {
-                    self.motion.spinner(now)
-                } else {
-                    "·"
-                };
-                let color = if j.done {
-                    if j.error {
-                        Color::Rgb(225, 120, 120)
-                    } else {
-                        Color::Rgb(135, 180, 135)
-                    }
-                } else {
-                    accent
-                };
-                let mut row = vec![
-                    Span::styled(format!("{icon} "), Style::default().fg(color)),
-                    Span::raw(format!("{} · ", j.title)),
-                ];
-                if active {
-                    row.push(Span::styled(
-                        format!(
-                            "{} ",
-                            motion::progress_bar(
-                                j.fraction,
-                                self.motion.phase(now),
-                                self.motion.enabled
-                            )
-                        ),
-                        Style::default().fg(accent),
-                    ));
-                }
-                row.push(Span::raw(j.status.clone()));
-                ListItem::new(Line::from(row))
-            })
-            .collect();
-        f.render_widget(
-            List::new(jobs).block(
-                Block::bordered()
-                    .border_style(Style::default().fg(motion::mix(
-                        Color::Rgb(75, 75, 75),
-                        if self.motion.finished.is_some_and(|(_, success)| success) {
-                            Color::Rgb(135, 180, 135)
-                        } else {
-                            Color::Rgb(225, 120, 120)
-                        },
-                        self.motion.finished_strength(now),
-                    )))
-                    .title(if self.paused {
-                        "Queue · paused"
-                    } else {
-                        "Queue"
-                    }),
-            ),
-            layout[3],
-        );
-        f.render_widget(
-            Paragraph::new(if self.loading_sites || self.updating {
-                format!("{} {}", self.motion.spinner(now), self.status)
-            } else {
-                self.status.clone()
-            })
-            .wrap(Wrap { trim: true })
-            .block(Block::bordered().border_style(Style::default().fg(accent))),
-            layout[4],
-        );
-        f.render_widget(Paragraph::new(" d Download  a Audio  c Options  p Pause  x Cancel  t Theme  o Open  u Update\n Tab Switch/focus  Esc Type  v Clipboard  q Quit").style(Style::default().fg(accent)),layout[5]);
-        if let Some(form) = &self.form {
-            let popup = center(area, 90, 85);
-            f.render_widget(Clear, popup);
-            let rows = form
-                .rows
-                .iter()
-                .map(|(k, v)| ListItem::new(format!("{k:22} {v}")))
-                .collect::<Vec<_>>();
-            let mut state = ListState::default().with_selected(Some(form.selected));
-            f.render_stateful_widget(
-                List::new(rows)
-                    .block(
-                        Block::bordered()
-                            .title(form.title.as_str())
-                            .style(Style::default().bg(bg).fg(fg)),
-                    )
-                    .highlight_style(Style::default().bg(accent).fg(bg)),
-                popup,
-                &mut state,
-            );
-        }
-        if let Some(browser) = &self.browser {
-            let popup = center(area, 85, 85);
-            f.render_widget(Clear, popup);
-            let rows = browser
-                .entries
-                .iter()
-                .map(|p| {
-                    ListItem::new(format!(
-                        "{} {}",
-                        if p.is_dir() { "▸" } else { " " },
-                        if browser.dir.parent() == Some(p.as_path()) {
-                            "..".into()
-                        } else {
-                            p.file_name()
-                                .unwrap_or_default()
-                                .to_string_lossy()
-                                .into_owned()
-                        }
-                    ))
-                })
-                .collect::<Vec<_>>();
-            let mut state = ListState::default().with_selected(Some(browser.selected));
-            f.render_stateful_widget(
-                List::new(rows)
-                    .block(
-                        Block::bordered()
-                            .title(format!(
-                                "{} · Enter Open · Esc Close",
-                                browser.dir.display()
-                            ))
-                            .style(Style::default().bg(bg).fg(fg)),
-                    )
-                    .highlight_style(Style::default().bg(accent).fg(bg)),
-                popup,
-                &mut state,
-            );
-        }
+        self.draw_original(f);
     }
 }
-fn center(area: Rect, w: u16, h: u16) -> Rect {
-    let width = area.width * w / 100;
-    let height = area.height * h / 100;
-    Rect::new(
-        area.x + (area.width - width) / 2,
-        area.y + (area.height - height) / 2,
-        width,
-        height,
-    )
-}
+#[path = "presentation.rs"]
+mod presentation;
+
 fn duration(s: f64) -> String {
     format!("{}:{:02}", s as u64 / 60, s as u64 % 60)
-}
-fn palette(name: &str) -> (Color, Color, Color) {
-    match name {
-        "matcha" => (
-            Color::Rgb(28, 38, 33),
-            Color::Rgb(215, 223, 215),
-            Color::Rgb(175, 215, 135),
-        ),
-        "earl-grey" => (
-            Color::Rgb(28, 28, 38),
-            Color::Rgb(215, 215, 223),
-            Color::Rgb(175, 175, 215),
-        ),
-        "hibiscus" => (
-            Color::Rgb(38, 28, 38),
-            Color::Rgb(228, 215, 223),
-            Color::Rgb(215, 135, 175),
-        ),
-        "tea-house" | "gingertea-light" => (
-            Color::Rgb(238, 238, 238),
-            Color::Rgb(38, 38, 38),
-            Color::Rgb(95, 95, 0),
-        ),
-        "tea-house-dark" => (
-            Color::Rgb(28, 28, 23),
-            Color::Rgb(228, 228, 215),
-            Color::Rgb(175, 175, 95),
-        ),
-        "dusk" => (
-            Color::Rgb(22, 19, 31),
-            Color::Rgb(232, 228, 240),
-            Color::Rgb(175, 135, 255),
-        ),
-        "tide" => (
-            Color::Rgb(14, 22, 32),
-            Color::Rgb(225, 233, 242),
-            Color::Rgb(95, 175, 255),
-        ),
-        "gingertea" => (
-            Color::Rgb(18, 18, 18),
-            Color::Rgb(228, 228, 228),
-            Color::Rgb(255, 135, 0),
-        ),
-        _ => (
-            Color::Rgb(18, 18, 18),
-            Color::Rgb(228, 228, 228),
-            Color::Rgb(215, 175, 95),
-        ),
-    }
 }
 fn decode_file_url(s: &str) -> String {
     let s = s.strip_prefix("file://").unwrap_or(s);
@@ -1516,10 +1350,5 @@ mod tests {
             decode_file_url("file:///tmp/My%20File.mp4"),
             "/tmp/My File.mp4"
         );
-    }
-    #[test]
-    fn small_layout() {
-        let r = center(Rect::new(0, 0, 20, 10), 90, 85);
-        assert!(r.right() <= 20 && r.bottom() <= 10);
     }
 }

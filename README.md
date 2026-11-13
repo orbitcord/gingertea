@@ -2,7 +2,11 @@
 
 Download and convert videos, audio and images in your terminal. This branch ports
 the application to Rust, using Ratatui for the interface and independent yt-dlp,
-FFmpeg/FFprobe and Deno executables for media processing.
+FFmpeg/FFprobe and Deno executables for media processing. The original terminal
+design is retained: large shaded wordmark, tea palettes, two source tabs, rounded
+input, open section rules, thumbnail/metadata card, solid action buttons and
+centered shortcut chips. Dialogs follow the original settings and four-panel
+conversion layouts.
 
 ## Build and run
 
@@ -49,10 +53,10 @@ URL, search, or dropped paths. Quoted paths and file URLs are accepted.
 
 | Key | Action |
 | --- | --- |
-| `1` / `2`, Tab | Download / Convert files |
+| `1` / `2`, Ctrl+T | Download / Convert files |
 | `d` / `a` | Download selected videos / audio |
 | `c` | Format, quality, clips, subtitles, SponsorBlock and conversion extras |
-| ↑ / ↓, Space, `e` | Navigate, select playlist item, select/deselect all |
+| `e`, ↑ / ↓, Space | Choose playlist items; First selects the first N |
 | `p` / `x` | Pause waiting jobs / cancel first unfinished job |
 | `f` / `r` | Browse files / remove a local file or history record |
 | `h` | Searchable history; Enter opens, `d` reloads, `y` copies the URL |
@@ -62,10 +66,11 @@ URL, search, or dropped paths. Quoted paths and file URLs are accepted.
 | `v` / `o` | Load clipboard / open last saved result |
 | `u` / `q` | Update yt-dlp / quit |
 
-In forms, ↑/↓ selects a field, ←/→ cycles choices, typing edits its value,
-Ctrl+U clears it, Ctrl+S saves or runs, and Esc closes. Settings include the
-output directory, filename template, browser cookies (off by default), theme,
-parallelism (1–4), and saved conversion choices. Configuration, history and
+Click tabs, buttons, shortcut chips, fields and options directly. In forms, Tab
+moves between fields, arrows choose formats/quality or cycle values, typing edits
+text, Ctrl+U clears it, Ctrl+S saves or runs, and Esc closes. Settings include the
+output directory, filename template, browser cookies (off by default),
+parallelism (1–4), and motion; press `t` for the theme picker. Configuration, history and
 playlist archives use the Python app's existing platform directories.
 
 Local formats retain the original video/audio/image target tables. Image output
@@ -93,6 +98,7 @@ uv sync --locked
 .venv/bin/python benchmarks/compare.py --runs 5
 .venv/bin/python benchmarks/smoke.py
 .venv/bin/python benchmarks/motion_check.py
+.venv/bin/python benchmarks/design_check.py
 ```
 
 See [the migration and benchmark report](docs/rust-port.md) and

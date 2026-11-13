@@ -394,6 +394,9 @@ Windows copies native uv executables into a public bin directory, so sibling-onl
 lookup missed the environment's yt-dlp and Deno. Native lookup now checks uv/pipx
 tool environments as well as sibling executables and the existing media cache.
 The isolated upgrade check exercises this through the public installed command.
+It also enforces a legacy Python output encoding: subprocesses now request UTF-8
+explicitly so Windows extractor names and JSON are decoded correctly. The
+encoding failure was reproduced locally before applying the subprocess fix.
 
 Risks: live site authentication and optional native image codec tools depend on
 external applications and are not covered by the offline platform suite.

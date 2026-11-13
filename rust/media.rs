@@ -237,11 +237,14 @@ pub fn shutdown_workers() {
         }
     }
 }
-fn configure_process(_cmd: &mut Command) {
+fn configure_process(cmd: &mut Command) {
+    // Python-based tools use a legacy code page for redirected output on
+    // Windows. Our JSON/text readers require the same UTF-8 contract everywhere.
+    cmd.env("PYTHONIOENCODING", "utf-8").env("PYTHONUTF8", "1");
     #[cfg(unix)]
     {
         use std::os::unix::process::CommandExt;
-        _cmd.process_group(0);
+        cmd.process_group(0);
     }
 }
 fn kill_tree(child: &mut std::process::Child) {

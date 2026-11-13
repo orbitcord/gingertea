@@ -32,6 +32,9 @@ def main():
             "UV_TOOL_BIN_DIR": str(root / "bin"),
             "GINGERTEA_CONFIG_DIR": str(root / "config"),
             "GINGERTEA_DATA_DIR": str(root / "data"),
+            # Exercise legacy Windows output even on UTF-8 hosts. The native
+            # app must establish UTF-8 when it launches Python-based tools.
+            "PYTHONIOENCODING": "cp1252",
         }
         command = root / "bin" / f"gingertea{suffix}"
         run(["uv", "tool", "install", "--python", sys.executable, "gingertea==0.2.0"], env)

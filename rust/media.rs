@@ -150,7 +150,48 @@ pub fn executable(name: &str) -> PathBuf {
             return sibling;
         }
     }
+    for bin in managed_tool_bins() {
+        let tool = bin.join(if cfg!(windows) {
+            format!("{name}.exe")
+        } else {
+            name.into()
+        });
+        if tool.is_file() {
+            return tool;
+        }
+    }
     name.into()
+}
+fn managed_tool_bins() -> &'static Vec<PathBuf> {
+    static BINS: OnceLock<Vec<PathBuf>> = OnceLock::new();
+    BINS.get_or_init(|| {
+        // Windows tool managers copy the executable into their public bin
+        // directory, so current_exe has no dependency executables beside it.
+        let bin = if cfg!(windows) { "Scripts" } else { "bin" };
+        let mut roots = Vec::new();
+        if let Some(root) = std::env::var_os("UV_TOOL_DIR") {
+            roots.push(PathBuf::from(root));
+        }
+        if let Some(root) = std::env::var_os("PIPX_HOME") {
+            roots.push(PathBuf::from(root).join("venvs"));
+        }
+        for (manager, args) in [
+            ("uv", vec!["tool", "dir"]),
+            ("pipx", vec!["environment", "--value", "PIPX_LOCAL_VENVS"]),
+        ] {
+            let mut command = Command::new(manager);
+            command.args(args);
+            if let Ok(root) = capture(command)
+                && !root.trim().is_empty()
+            {
+                roots.push(PathBuf::from(root.trim()));
+            }
+        }
+        roots
+            .into_iter()
+            .map(|root| root.join("gingertea").join(bin))
+            .collect()
+    })
 }
 pub fn platform_key() -> String {
     let os = if cfg!(target_os = "macos") {
@@ -858,16 +899,31 @@ mod parity_tests {
             let args = result.unwrap();
             let mut expected: Vec<String> =
                 serde_json::from_value(case["expected"].clone()).unwrap();
-            // The Python oracle above assumes every encoder; use the host's documented audio fallback.
-            if c.kind == "audio"
-                && !has_encoder(encoder(&strings(&tables()["audio"][&c.fmt]["encode"])))
-            {
-                let primary = strings(&tables()["audio"][&c.fmt]["encode"]);
-                let fallback = strings(&tables()["audio"][&c.fmt]["fallback"]);
-                if !fallback.is_empty()
+            // The oracle assumes every encoder. Audio fallbacks also apply to
+            // audio streams inside videos, not only standalone audio output.
+            for target in tables()["audio"].as_object().unwrap().values() {
+                let primary = strings(&target["encode"]);
+                let fallback = strings(&target["fallback"]);
+                if !primary.is_empty()
+                    && !fallback.is_empty()
+                    && !has_encoder(encoder(&primary))
                     && let Some(i) = expected.windows(primary.len()).position(|v| v == primary)
                 {
                     expected.splice(i..i + primary.len(), fallback);
+                }
+            }
+            if c.kind == "image" {
+                let candidates = tables()["image"][&c.fmt]["encoders"].as_array().unwrap();
+                let primary = strings(&candidates[0]);
+                let chosen = candidates
+                    .iter()
+                    .map(strings)
+                    .find(|a| has_encoder(encoder(a)))
+                    .unwrap();
+                if chosen != primary
+                    && let Some(i) = expected.windows(primary.len()).position(|v| v == primary)
+                {
+                    expected.splice(i..i + primary.len(), chosen);
                 }
             }
             assert_eq!(args, expected, "{} {} {}", c.kind, c.fmt, c.quality);

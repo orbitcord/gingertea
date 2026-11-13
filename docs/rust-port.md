@@ -378,3 +378,22 @@ right-aligned times, long-title ellipsis, row colors/edge, scroll keys, keyboard
 Cancel and compact 60×24 controls. Capture: `benchmarks/results/playlist-picker.txt`.
 All 29 Rust tests, Clippy and the release build pass. Unknown remote durations
 remain unavailable until supplied by the extractor; they are not invented.
+
+## Native release validation
+
+The release now builds native wheels and tests an upgrade from the published
+Python 0.2.0 package in an isolated uv tool environment on each supported OS.
+The installed native executable is also exported as the standalone release asset.
+
+The first platform run exposed two portability issues. The planner parity oracle
+assumed every host had the same image and audio encoders; it now accounts for
+listed fallback encoders for audio streams inside videos and for still images.
+The original failure was reproduced with an FFmpeg encoder listing that omits
+libvorbis, then verified with both that listing and the full local Rust suite.
+Windows copies native uv executables into a public bin directory, so sibling-only
+lookup missed the environment's yt-dlp and Deno. Native lookup now checks uv/pipx
+tool environments as well as sibling executables and the existing media cache.
+The isolated upgrade check exercises this through the public installed command.
+
+Risks: live site authentication and optional native image codec tools depend on
+external applications and are not covered by the offline platform suite.

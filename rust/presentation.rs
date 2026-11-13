@@ -1097,9 +1097,9 @@ impl App {
                     Paragraph::new("MP4 by default").style(Style::default().fg(p.muted)),
                     Rect::new(
                         next_x + width + 2,
-                        y,
+                        y + height / 2,
                         details.right().saturating_sub(next_x + width + 2),
-                        height,
+                        1,
                     ),
                 );
             }

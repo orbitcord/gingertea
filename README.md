@@ -74,6 +74,13 @@ macOS `sips` or libheif's `heif-enc`/`heif-convert` on other platforms. Install
 optional native image tools separately. Image metadata and encoder output can
 differ from the old Pillow implementation.
 
+## Motion
+
+The header resolves into `gingertea` on launch. Paste feedback, loading indicators,
+active job progress and a short completion accent respond to actual app events.
+Animations stop when work finishes. Set `animations` to `false` in Settings, or
+launch with `GINGERTEA_NO_ANIMATION=1`, for static presentation with live progress.
+
 ## Validation and benchmarks
 
 ```sh
@@ -85,6 +92,7 @@ cargo build --release --locked
 uv sync --locked
 .venv/bin/python benchmarks/compare.py --runs 5
 .venv/bin/python benchmarks/smoke.py
+.venv/bin/python benchmarks/motion_check.py
 ```
 
 See [the migration and benchmark report](docs/rust-port.md) and

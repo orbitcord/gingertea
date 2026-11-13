@@ -96,3 +96,47 @@ playlist folders/archive skipping, safe repeated publication, file/format forms,
 queue completion, history, settings, themes, file browsing, and JPEG XL round-trip.
 
 Run the built application with `./target/release/gingertea`.
+
+## Event-driven motion
+
+The chosen character-resolve wordmark runs for 700 ms on launch, without delaying
+input or moving the navigation. Terminal-safe glyphs resolve into a fixed nine-cell
+wordmark. Pasting a URL or file path acknowledges it with a 220 ms border accent;
+metadata/file loading has a compact spinner; ready content gets a 240 ms border
+settle. Active jobs have a spinner plus a ten-cell progress bar (actual percentage
+when known, a traveling segment otherwise). Completion/error gets a 280 ms queue
+border accent, with a persistent success/error icon afterward.
+
+Animation frames are scheduled only during these events: up to 20 Hz for short
+feedback and 10 Hz for active work. One final frame clears the animation, after
+which the normal dirty-only rendering resumes. No continuous decorative idle loop
+or extra animation dependency is used. `animations = false` in Settings or
+`GINGERTEA_NO_ANIMATION=1` disables all timed effects while retaining progress/status
+updates. Existing settings files default to motion enabled.
+
+Validation: deterministic elapsed-time tests cover wordmark width/final state,
+finite feedback, disabled scheduling and progress parsing. The terminal acceptance
+script `benchmarks/motion_check.py` uses an explicitly timed external backend stub
+to exercise actual bracketed paste, loading/progress frames, queue completion,
+Settings persistence and both ways to disable motion. Post-queue measurements live
+in `benchmarks/results/motion.json`.
+
+Design decision: the requested paste acknowledgment is feedback on acceptance;
+ordinary typing, navigation, focus and shortcut dispatch remain immediate. No
+transition delays a command or worker. Initial compiler diagnostics came from two
+commas left inside newly nested message-handler matches; removing those commas
+resolved the parse errors without suppressions.
+
+Motion acceptance results on this machine: after a completed queue, 0 bytes/s of
+terminal output and no additional CPU time visible in `ps` over three seconds;
+resident memory was 4.83 MiB after loading details and completing the test job.
+All eight terminal acceptance checks passed, including motion disabled at startup
+through the saved setting and environment override. Rust checks: 19 tests passed,
+formatting and warning-free Clippy, plus the release build.
+
+Test-harness corrections: the timed backend fixture uses `/usr/bin/env python3`
+because an executable interpreter path with spaces cannot be used directly in a
+Unix shebang. The motion-off check drains the remaining initial paint before its
+idle sample: readiness text can arrive before the footer bytes from that same
+paint. A separate reproduction confirmed those bytes were initial drawing, with
+zero output afterward. No product behavior was relaxed to satisfy these checks.

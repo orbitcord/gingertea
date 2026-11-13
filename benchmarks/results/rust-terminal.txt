@@ -5,16 +5,16 @@
 │                                                                                                                      │
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ┌History · Enter Open · d Download again · y Copy URL · r Forget───────────────────────────────────────────────────────┐
-│› /var/folders/l4/q6_zrr416rl_33m8lgd46kcw0000gn/T/gingertea-smoke-vckejrz7/fixture.mp4                               │
-│  /var/folders/l4/q6_zrr416rl_33m8lgd46kcw0000gn/T/gingertea-smoke-vckejrz7/fixture (2).mp4                           │
+│› /var/folders/l4/q6_zrr416rl_33m8lgd46kcw0000gn/T/gingertea-smoke-2_9obdic/fixture.mp4                               │
+│  /var/folders/l4/q6_zrr416rl_33m8lgd46kcw0000gn/T/gingertea-smoke-2_9obdic/fixture (2).mp4                           │
 │  Fixture playlist (2) [playlist-2]                                                                                   │
-│  /var/folders/l4/q6_zrr416rl_33m8lgd46kcw0000gn/T/gingertea-smoke-vckejrz7/playlists/Fixture playlist/Fixture playlis│
+│  /var/folders/l4/q6_zrr416rl_33m8lgd46kcw0000gn/T/gingertea-smoke-2_9obdic/playlists/Fixture playlist/Fixture playlis│
 │  Fixture playlist (1) [playlist-1]                                                                                   │
-│  /var/folders/l4/q6_zrr416rl_33m8lgd46kcw0000gn/T/gingertea-smoke-vckejrz7/playlists/Fixture playlist/Fixture playlis│
+│  /var/folders/l4/q6_zrr416rl_33m8lgd46kcw0000gn/T/gingertea-smoke-2_9obdic/playlists/Fixture playlist/Fixture playlis│
 │  fixture [fixture] (2)                                                                                               │
-│  /var/folders/l4/q6_zrr416rl_33m8lgd46kcw0000gn/T/gingertea-smoke-vckejrz7/downloads/fixture [fixture] (2).mp4       │
+│  /var/folders/l4/q6_zrr416rl_33m8lgd46kcw0000gn/T/gingertea-smoke-2_9obdic/downloads/fixture [fixture] (2).mp4       │
 │  fixture [fixture]                                                                                                   │
-│  /var/folders/l4/q6_zrr416rl_33m8lgd46kcw0000gn/T/gingertea-smoke-vckejrz7/downloads/fixture [fixture].mp4           │
+│  /var/folders/l4/q6_zrr416rl_33m8lgd46kcw0000gn/T/gingertea-smoke-2_9obdic/downloads/fixture [fixture].mp4           │
 │                                                                                                                      │
 │                                                                                                                      │
 │                                                                                                                      │

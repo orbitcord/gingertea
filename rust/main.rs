@@ -1,5 +1,6 @@
 mod download;
 mod media;
+mod motion;
 mod state;
 mod tools;
 mod ui;

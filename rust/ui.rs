@@ -1,6 +1,7 @@
 use crate::{
     download,
     media::{self, Cancel, Choice, FileInfo, Reporter},
+    motion::{self, Motion},
     state::{self, Settings},
 };
 use anyhow::Result;
@@ -60,6 +61,7 @@ struct Job {
     cancel: Cancel,
     paths: Vec<PathBuf>,
     error: bool,
+    fraction: Option<f64>,
 }
 enum Message {
     Probe(u64, Result<Value, String>),
@@ -112,6 +114,11 @@ struct App {
     dirty: bool,
     last_saved: Option<PathBuf>,
     last_frame: Instant,
+    motion: Motion,
+    loading_video: Option<u64>,
+    loading_files: usize,
+    loading_sites: bool,
+    updating: bool,
 }
 struct TerminalGuard;
 impl Drop for TerminalGuard {
@@ -126,6 +133,11 @@ pub fn run(settings: Settings, initial: String, cancel: Cancel) -> Result<()> {
     let _guard = TerminalGuard;
     let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
     let (tx, rx) = mpsc::channel();
+    let now = Instant::now();
+    let motion = Motion::new(
+        settings.animations && std::env::var_os("GINGERTEA_NO_ANIMATION").is_none(),
+        now,
+    );
     let mut app = App {
         settings,
         page: Page::Download,
@@ -148,23 +160,45 @@ pub fn run(settings: Settings, initial: String, cancel: Cancel) -> Result<()> {
         generation: 0,
         dirty: true,
         last_saved: None,
-        last_frame: Instant::now(),
+        last_frame: now,
+        motion,
+        loading_video: None,
+        loading_files: 0,
+        loading_sites: false,
+        updating: false,
     };
     if !initial.is_empty() {
         app.load_input(initial)
     }
+    let mut was_animating = false;
     loop {
         if cancel.load(Ordering::Relaxed) {
             break;
         }
         app.messages();
         app.schedule();
+        app.motion.enabled =
+            app.settings.animations && std::env::var_os("GINGERTEA_NO_ANIMATION").is_none();
+        let interval = app.motion.interval(Instant::now(), app.busy());
+        if interval.is_some_and(|interval| app.last_frame.elapsed() >= interval)
+            || was_animating && interval.is_none()
+        {
+            app.dirty = true;
+        }
+        was_animating = interval.is_some();
         if app.dirty {
             terminal.draw(|f| app.draw(f))?;
             app.dirty = false;
             app.last_frame = Instant::now();
         }
-        if event::poll(Duration::from_millis(40))? {
+        let wait = interval
+            .map(|interval| {
+                interval
+                    .saturating_sub(app.last_frame.elapsed())
+                    .min(Duration::from_millis(40))
+            })
+            .unwrap_or(Duration::from_millis(40));
+        if event::poll(wait)? {
             match event::read()? {
                 Event::Key(k) if k.kind == KeyEventKind::Press => {
                     if app.key(k)? {
@@ -173,6 +207,7 @@ pub fn run(settings: Settings, initial: String, cancel: Cancel) -> Result<()> {
                     app.dirty = true
                 }
                 Event::Paste(s) => {
+                    app.motion.pasted = Some(Instant::now());
                     if app.form.is_some() {
                         if let Some(form) = &mut app.form {
                             form.rows[form.selected].1.push_str(&s);
@@ -199,6 +234,13 @@ pub fn run(settings: Settings, initial: String, cancel: Cancel) -> Result<()> {
     Ok(())
 }
 impl App {
+    fn busy(&self) -> bool {
+        self.loading_video.is_some()
+            || self.loading_files > 0
+            || self.loading_sites
+            || self.updating
+            || self.jobs.iter().any(|j| j.started && !j.done)
+    }
     fn load_input(&mut self, text: String) {
         let trimmed = text.trim();
         let whole = state::expand(trimmed.trim_matches(['\'', '"']));
@@ -215,6 +257,9 @@ impl App {
         if !paths.is_empty() {
             self.page = Page::Files;
             self.status = "Reading files…".into();
+            self.loading_files += 1;
+            self.loading_video = None;
+            self.generation += 1;
             let tx = self.tx.clone();
             thread::spawn(move || {
                 let result = paths
@@ -234,6 +279,7 @@ impl App {
             self.entries.clear();
             self.generation += 1;
             let generation = self.generation;
+            self.loading_video = Some(generation);
             let tx = self.tx.clone();
             let s = self.settings.clone();
             let input = self.input.clone();
@@ -253,8 +299,10 @@ impl App {
                     if generation != self.generation {
                         continue;
                     }
+                    self.loading_video = None;
                     match result {
                         Ok(info) => {
+                            self.motion.ready = Some(Instant::now());
                             self.selected = 0;
                             self.entries = if let Some(entries) = info["entries"].as_array() {
                                 entries
@@ -304,25 +352,31 @@ impl App {
                         Err(e) => self.status = e,
                     }
                 }
-                Message::Files(result) => match result {
-                    Ok(files) => {
-                        for file in files {
-                            if !self.files.iter().any(|f| f.path == file.path) {
-                                self.files.push(file)
+                Message::Files(result) => {
+                    self.loading_files = self.loading_files.saturating_sub(1);
+                    match result {
+                        Ok(files) => {
+                            self.motion.ready = Some(Instant::now());
+                            for file in files {
+                                if !self.files.iter().any(|f| f.path == file.path) {
+                                    self.files.push(file)
+                                }
                             }
+                            self.status = "Files ready. c Convert · f Browse · r Remove".into();
                         }
-                        self.status = "Files ready. c Convert · f Browse · r Remove".into();
+                        Err(e) => self.status = e,
                     }
-                    Err(e) => self.status = e,
-                },
+                }
                 Message::Progress(i, s) => {
                     if let Some(j) = self.jobs.get_mut(i) {
+                        j.fraction = motion::percentage(&s);
                         j.status = s
                     }
                 }
                 Message::Finished(i, result) => {
                     if let Some(j) = self.jobs.get_mut(i) {
                         j.done = true;
+                        self.motion.finished = Some((Instant::now(), result.is_ok()));
                         match result {
                             Ok(paths) => {
                                 self.last_saved = paths.last().cloned();
@@ -341,16 +395,20 @@ impl App {
                         notify("Queue finished");
                     }
                 }
-                Message::Sites(result) => match result {
-                    Ok(sites) => self.sites = sites,
-                    Err(e) => self.status = e,
-                },
+                Message::Sites(result) => {
+                    self.loading_sites = false;
+                    match result {
+                        Ok(sites) => self.sites = sites,
+                        Err(e) => self.status = e,
+                    }
+                }
                 Message::Thumb(generation, t) => {
                     if generation == self.generation {
                         self.thumb = Some(t)
                     }
                 }
                 Message::Update(r) => {
+                    self.updating = false;
                     self.status = match r {
                         Ok(()) => "yt-dlp updated".into(),
                         Err(e) => e,
@@ -384,6 +442,7 @@ impl App {
                         cancel: Arc::new(AtomicBool::new(false)),
                         paths: Vec::new(),
                         error: false,
+                        fraction: None,
                     });
                 }
             }
@@ -406,6 +465,7 @@ impl App {
                         cancel: Arc::new(AtomicBool::new(false)),
                         paths: Vec::new(),
                         error: false,
+                        fraction: None,
                     });
                 }
             }
@@ -769,6 +829,7 @@ impl App {
                 self.input.clear();
                 self.selected = 0;
                 if self.sites.is_empty() {
+                    self.loading_sites = true;
                     let tx = self.tx.clone();
                     thread::spawn(move || {
                         let _ =
@@ -877,6 +938,7 @@ impl App {
             },
             KeyCode::Char('v') => {
                 if let Some(text) = clipboard_read() {
+                    self.motion.pasted = Some(Instant::now());
                     self.load_input(text)
                 }
             }
@@ -889,6 +951,7 @@ impl App {
             KeyCode::Char('u') => {
                 let tx = self.tx.clone();
                 self.status = "Updating yt-dlp…".into();
+                self.updating = true;
                 thread::spawn(move || {
                     let report: Reporter = Arc::new(|_| {});
                     let c = Arc::new(AtomicBool::new(false));
@@ -969,6 +1032,20 @@ impl App {
     fn draw(&mut self, f: &mut Frame) {
         let area = f.area();
         let (bg, fg, accent) = palette(&self.settings.theme);
+        let now = Instant::now();
+        let highlight = motion::mix(accent, fg, 0.85);
+        let mut header = vec![Span::raw(" ")];
+        header.extend(self.motion.logo(now).into_iter().map(|(c, bright)| {
+            Span::styled(
+                c.to_string(),
+                Style::default()
+                    .fg(if bright { highlight } else { accent })
+                    .bold(),
+            )
+        }));
+        header.push(Span::raw(
+            "  1 Download   2 Convert files   h History   l Sites   s Settings",
+        ));
         f.render_widget(Block::default().style(Style::default().bg(bg).fg(fg)), area);
         let layout = Layout::vertical([
             Constraint::Length(3),
@@ -980,12 +1057,9 @@ impl App {
         ])
         .split(area);
         f.render_widget(
-            Paragraph::new(Line::from(vec![
-                Span::styled(" gingertea ", Style::default().fg(accent).bold()),
-                Span::raw(" 1 Download   2 Convert files   h History   l Sites   s Settings"),
-            ]))
-            .block(Block::bordered())
-            .style(Style::default().fg(fg)),
+            Paragraph::new(Line::from(header))
+                .block(Block::bordered())
+                .style(Style::default().fg(fg)),
             layout[0],
         );
         let input_title = match self.page {
@@ -1001,11 +1075,20 @@ impl App {
                         "{input_title}{}",
                         if self.editing { " · typing" } else { "" }
                     ))
-                    .border_style(Style::default().fg(if self.editing {
-                        accent
+                    .title_bottom(if self.loading_video.is_some() || self.loading_files > 0 {
+                        format!(" {} Reading… ", self.motion.spinner(now))
                     } else {
-                        Color::DarkGray
-                    })),
+                        String::new()
+                    })
+                    .border_style(Style::default().fg(motion::mix(
+                        if self.editing {
+                            accent
+                        } else {
+                            Color::Rgb(75, 75, 75)
+                        },
+                        highlight,
+                        self.motion.input_strength(now),
+                    ))),
             ),
             layout[1],
         );
@@ -1110,13 +1193,27 @@ impl App {
                     Page::History => "No matching history",
                     Page::Sites => "Loading supported sites…",
                 })
-                .block(Block::bordered().title(title)),
+                .block(Block::bordered().title(title).border_style(
+                    Style::default().fg(motion::mix(
+                        Color::Rgb(75, 75, 75),
+                        accent,
+                        self.motion.ready_strength(now),
+                    )),
+                )),
                 list_area,
             );
         } else {
             f.render_stateful_widget(
                 List::new(rows)
-                    .block(Block::bordered().title(title))
+                    .block(
+                        Block::bordered()
+                            .title(title)
+                            .border_style(Style::default().fg(motion::mix(
+                                Color::Rgb(75, 75, 75),
+                                accent,
+                                self.motion.ready_strength(now),
+                            ))),
+                    )
                     .highlight_style(Style::default().bg(accent).fg(bg))
                     .highlight_symbol("› "),
                 list_area,
@@ -1129,32 +1226,72 @@ impl App {
             .rev()
             .take(20)
             .map(|j| {
-                ListItem::new(format!(
-                    "{} {} · {}",
-                    if j.done {
-                        if j.error { "✕" } else { "✓" }
-                    } else if j.started {
-                        "▶"
+                let active = j.started && !j.done;
+                let icon = if j.done {
+                    if j.error { "✕" } else { "✓" }
+                } else if active {
+                    self.motion.spinner(now)
+                } else {
+                    "·"
+                };
+                let color = if j.done {
+                    if j.error {
+                        Color::Rgb(225, 120, 120)
                     } else {
-                        "·"
-                    },
-                    j.title,
-                    j.status
-                ))
+                        Color::Rgb(135, 180, 135)
+                    }
+                } else {
+                    accent
+                };
+                let mut row = vec![
+                    Span::styled(format!("{icon} "), Style::default().fg(color)),
+                    Span::raw(format!("{} · ", j.title)),
+                ];
+                if active {
+                    row.push(Span::styled(
+                        format!(
+                            "{} ",
+                            motion::progress_bar(
+                                j.fraction,
+                                self.motion.phase(now),
+                                self.motion.enabled
+                            )
+                        ),
+                        Style::default().fg(accent),
+                    ));
+                }
+                row.push(Span::raw(j.status.clone()));
+                ListItem::new(Line::from(row))
             })
             .collect();
         f.render_widget(
-            List::new(jobs).block(Block::bordered().title(if self.paused {
-                "Queue · paused"
-            } else {
-                "Queue"
-            })),
+            List::new(jobs).block(
+                Block::bordered()
+                    .border_style(Style::default().fg(motion::mix(
+                        Color::Rgb(75, 75, 75),
+                        if self.motion.finished.is_some_and(|(_, success)| success) {
+                            Color::Rgb(135, 180, 135)
+                        } else {
+                            Color::Rgb(225, 120, 120)
+                        },
+                        self.motion.finished_strength(now),
+                    )))
+                    .title(if self.paused {
+                        "Queue · paused"
+                    } else {
+                        "Queue"
+                    }),
+            ),
             layout[3],
         );
         f.render_widget(
-            Paragraph::new(self.status.as_str())
-                .wrap(Wrap { trim: true })
-                .block(Block::bordered().border_style(Style::default().fg(accent))),
+            Paragraph::new(if self.loading_sites || self.updating {
+                format!("{} {}", self.motion.spinner(now), self.status)
+            } else {
+                self.status.clone()
+            })
+            .wrap(Wrap { trim: true })
+            .block(Block::bordered().border_style(Style::default().fg(accent))),
             layout[4],
         );
         f.render_widget(Paragraph::new(" d Download  a Audio  c Options  p Pause  x Cancel  t Theme  o Open  u Update\n Tab Switch/focus  Esc Type  v Clipboard  q Quit").style(Style::default().fg(accent)),layout[5]);

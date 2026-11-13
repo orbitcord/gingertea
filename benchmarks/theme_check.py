@@ -46,7 +46,11 @@ def main():
                 app.wait("Themes · live preview")
                 app.settle(0.15)
                 assert any(
-                    "›" in row and "✓ gingertea" in row for row in app.screen().splitlines()
+                    "›" in row
+                    and "✓" in row
+                    and "gingertea" in row
+                    and "gingertea-light" not in row
+                    for row in app.screen().splitlines()
                 ), "Esc did not restore the previous theme"
                 app.send("\x1b[F ")  # End then Space saves the last theme.
                 app.settle(0.15)

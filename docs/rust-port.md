@@ -312,3 +312,17 @@ footer comparison records the deliberately increased footer height.
 
 Risks: adding vertical breathing room uses more terminal rows; extremely short
 windows retain the existing bounds on footer height.
+
+
+## Cleaner theme menu in light mode
+
+The color squares used each theme's panel as a backing, creating a dark vertical
+strip on light palettes. Previews now use a smaller square on the current menu's
+background, with consistent space before the name. The saved-theme check moves
+into a separate trailing column and the list has wider inner padding in a
+narrower popup. Redundant light tags are removed: light variants use `-light`,
+while dark variants use the plain name. Tea House's display names are normalized
+without changing saved theme identifiers, and display order remains alphabetical.
+The layout check verifies exact labels/order and the absence of dark preview
+backings while previewing a light palette; full/compact picker checks and Clippy
+also pass.

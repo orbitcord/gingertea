@@ -13,20 +13,20 @@
 
   ╭ URL ─────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
   │ › Paste a video link                                                                                             │
-  ╰─────────────────────────Themes · live preview  ↑↓ try · Enter keep · Esc back           ─────────────────────────╯
+  ╰────────────────────────────Themes · live preview  ↑↓ try · Enter keep · Esc back     ────────────────────────────╯
 
-  ─ Video ──────────────────╭──────────────────────────────────────────────────────────────╮──────────────────────────
-                            │  ■   masala-chai                                             │
-  Paste a video link above. │  ■   matcha                                                  │
-                            │  ■   earl-grey                                               │
-  YouTube, Vimeo, SoundCloud│  ■   hibiscus                                                │
-                            │  ■   tea-house  light                                        │
-  ─ Downloads ──────────────│  ■   tea-house-dark                                          │──────────────────────────
-                            │› ■ ✓ gingertea                                               │
-  No downloads yet. Paste a │  ■   gingertea-light  light                                  │
-                            │  ■   dusk                                                    │
-                            │  ■   tide                                                    │
-                            ╰──────────────────────────────────────────────────────────────╯
+  ─ Video ─────────────────────╭────────────────────────────────────────────────────────╮─────────────────────────────
+                               │    ▪   dusk                                            │
+  Paste a video link above.    │    ▪   earl-grey                                       │
+                               │    ▪   gingertea          ✓                            │
+  YouTube, Vimeo, SoundCloud an│ ›  ▪   gingertea-light                                 │
+                               │    ▪   hibiscus                                        │
+  ─ Downloads ─────────────────│    ▪   masala-chai                                     │─────────────────────────────
+                               │    ▪   matcha                                          │
+  No downloads yet. Paste a lin│    ▪   tea-house                                       │
+                               │    ▪   tea-house-light                                 │
+                               │    ▪   tide                                            │
+                               ╰────────────────────────────────────────────────────────╯
 
 
 

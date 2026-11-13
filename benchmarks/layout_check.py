@@ -135,11 +135,24 @@ def main():
                     app.wait("Themes · live preview")
                     app.settle(0.2)
                     rows = app.screen().splitlines()
-                    swatches = [(y, row.index("■")) for y, row in enumerate(rows) if "■" in row]
+                    swatches = [(y, row.index("▪")) for y, row in enumerate(rows) if "▪" in row]
                     assert len(swatches) == 10
                     cells = styles(app)
                     assert len({cells[position][1] for position in swatches}) >= 6
-                    assert any("gingertea-light" in row and "light" in row for row in rows)
+                    labels = [row.split("▪", 1)[1][3:21].strip() for row in rows if "▪" in row]
+                    assert labels == sorted(labels)
+                    assert "tea-house-light" in labels and "tea-house" in labels
+                    assert "tea-house-dark" not in labels
+                    assert all(" " not in label for label in labels), labels
+                    app.send("\x1b[B")  # Preview gingertea-light as well as the dark palette.
+                    app.settle(0.15)
+                    cells = styles(app)
+                    assert all(cells[position][2] == 255 for position in swatches), (
+                        f"Swatch backgrounds: {[cells[position] for position in swatches]}"
+                    )
+                    assert cells[swatches[3]][1] == 166, "Selected preview lost its own accent color"
+                    rows = app.screen().splitlines()
+                    results[-1]["light_theme_swatches_without_backing_strips"] = True
                     (ROOT / "benchmarks/results/themes-preview.txt").write_text(
                         "\n".join(row[:width].rstrip() for row in rows[:height]) + "\n"
                     )

@@ -107,7 +107,8 @@
           88
         ]
       ],
-      "solid_whole_button_hover": true
+      "solid_whole_button_hover": true,
+      "light_theme_swatches_without_backing_strips": true
     },
     {
       "width": 160,

@@ -696,7 +696,7 @@ impl App {
         if let Some(selected) = self.theme_picker {
             self.hitboxes.clear();
             self.focusable_buttons.clear();
-            let popup = popup(area, 64, THEMES.len() as u16 + 5);
+            let popup = popup(area, 58, THEMES.len() as u16 + 5);
             f.render_widget(Clear, popup);
             f.render_widget(
                 Block::default().style(Style::default().bg(p.background).fg(p.foreground)),
@@ -724,34 +724,20 @@ impl App {
                     .border_style(Style::default().fg(p.primary)),
                 list_box,
             );
-            let body = inset(list_box, 1, 1);
+            let body = inset(list_box, 2, 1);
             let rows = THEMES
                 .iter()
                 .map(|name| {
                     let own = banner::colors(name);
-                    let light = if let Color::Rgb(r, g, b) = own.background {
-                        (r as u32 + g as u32 + b as u32) > 3 * 150
-                    } else {
-                        false
-                    };
                     ListItem::new(Line::from(vec![
-                        Span::styled("■", Style::default().fg(own.primary).bg(own.panel)),
-                        Span::raw(format!(
-                            " {} {name}",
-                            if self.theme_original.as_deref() == Some(*name) {
-                                "✓"
-                            } else {
-                                " "
-                            }
-                        )),
-                        Span::styled(
-                            if light { "  light" } else { "" },
-                            Style::default().fg(if *name == THEMES[selected] {
-                                on_fill(p.primary, 0.90)
-                            } else {
-                                p.muted
-                            }),
-                        ),
+                        Span::raw(" "),
+                        Span::styled("▪", Style::default().fg(own.primary).bg(p.background)),
+                        Span::raw(format!("   {:<18}", theme_label(name))),
+                        Span::raw(if self.theme_original.as_deref() == Some(*name) {
+                            " ✓"
+                        } else {
+                            ""
+                        }),
                     ]))
                 })
                 .collect::<Vec<_>>();
@@ -771,6 +757,13 @@ impl App {
             let offset = state.offset();
             self.theme_scroll = offset;
             for row in 0..body.height.min(THEMES.len().saturating_sub(offset) as u16) {
+                // List highlighting overrides span colors. Paint the preview last
+                // so it retains its own accent rather than the selection's ink.
+                let swatch = banner::colors(THEMES[offset + row as usize]);
+                f.render_widget(
+                    Paragraph::new("▪").style(Style::default().fg(swatch.primary).bg(p.background)),
+                    Rect::new(body.x + 3, body.y + row, 1, 1),
+                );
                 self.hit(
                     Rect::new(body.x, body.y + row, body.width, 1),
                     UiAction::Theme(offset + row as usize),

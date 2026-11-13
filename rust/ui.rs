@@ -40,10 +40,17 @@ const THEMES: &[&str] = &[
     "hibiscus",
     "masala-chai",
     "matcha",
-    "tea-house",
     "tea-house-dark",
+    "tea-house",
     "tide",
 ];
+fn theme_label(id: &str) -> &str {
+    match id {
+        "tea-house-dark" => "tea-house",
+        "tea-house" => "tea-house-light",
+        _ => id,
+    }
+}
 #[derive(Clone)]
 struct Entry {
     url: String,

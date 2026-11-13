@@ -62,13 +62,15 @@ URL, search, or dropped paths. Quoted paths and file URLs are accepted.
 | `h` | Searchable history; Enter opens, `d` reloads, `y` copies the URL |
 | `s` / `3` | Settings |
 | `l` / `4` | Search supported site extractors |
-| `t` | Cycle tea themes |
+| `t` | Open the theme picker |
 | `v` / `o` | Load clipboard / open last saved result |
 | `u` / `q` | Update yt-dlp / quit |
 
-Click tabs, buttons, shortcut chips, fields and options directly. In forms, Tab
-moves between fields, arrows choose formats/quality or cycle values, typing edits
-text, Ctrl+U clears it, Ctrl+S saves or runs, and Esc closes. Settings include the
+Click tabs, buttons, shortcut chips, fields and options directly. Tab/Shift+Tab
+moves focus between controls and action buttons; Enter/Space activates a focused
+button. In forms, arrows choose formats/quality or cycle values; Enter opens a
+settings dropdown. Text fields support caret movement, insertion and deletion.
+Ctrl+U clears text, Ctrl+S saves or runs, and Esc cancels. Settings include the
 output directory, filename template, browser cookies (off by default),
 parallelism (1–4), and motion; press `t` for the theme picker. Arrows or Tab preview
 themes, Enter/Space or a click saves, and Esc cancels. Configuration, history and

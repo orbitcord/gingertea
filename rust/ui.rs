@@ -88,6 +88,7 @@ struct Form {
     rows: Vec<(String, String)>,
     selected: usize,
     purpose: String,
+    cursor: Option<usize>,
 }
 struct Browser {
     dir: PathBuf,
@@ -107,6 +108,7 @@ enum UiAction {
     Theme(usize),
     ChoosePlaylist,
     PlaylistFirst,
+    DropdownValue(usize, String),
     Retry,
     Browser(usize),
 }
@@ -114,6 +116,11 @@ struct App {
     settings: Settings,
     page: Page,
     input: String,
+    input_cursor: Option<usize>,
+    focus: Option<UiAction>,
+    focusable_buttons: Vec<UiAction>,
+    pending_url: Option<(Instant, String)>,
+    dropdown: Option<(usize, Vec<String>, usize)>,
     editing: bool,
     selected: usize,
     entries: Vec<Entry>,
@@ -155,6 +162,21 @@ struct App {
     playlist_typing: bool,
     playlist_backup: Vec<bool>,
 }
+fn local_kinds(file: &FileInfo) -> &'static [&'static str] {
+    match file.media.as_str() {
+        "image" => &["image"],
+        "audio" => &["audio"],
+        _ if file
+            .path
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("gif")) =>
+        {
+            &["video", "image"]
+        }
+        _ if file.audio.is_some() => &["video", "audio", "frames"],
+        _ => &["video", "frames"],
+    }
+}
 struct TerminalGuard;
 impl Drop for TerminalGuard {
     fn drop(&mut self) {
@@ -168,6 +190,10 @@ impl Drop for TerminalGuard {
     }
 }
 pub fn run(settings: Settings, initial: String, cancel: Cancel) -> Result<()> {
+    // This interactive application explicitly renders a theme. CLI commands keep
+    // their normal NO_COLOR behavior; do not mutate the parent environment.
+    ratatui::crossterm::style::force_color_output(true);
+    crossterm::style::force_color_output(true);
     enable_raw_mode()?;
     execute!(
         io::stdout(),
@@ -187,6 +213,11 @@ pub fn run(settings: Settings, initial: String, cancel: Cancel) -> Result<()> {
         settings,
         page: Page::Download,
         input: String::new(),
+        input_cursor: None,
+        focus: None,
+        focusable_buttons: Vec::new(),
+        pending_url: None,
+        dropdown: None,
         editing: true,
         selected: 0,
         entries: Vec::new(),
@@ -246,6 +277,16 @@ pub fn run(settings: Settings, initial: String, cancel: Cancel) -> Result<()> {
         if cancel.load(Ordering::Relaxed) || app.quit_requested {
             break;
         }
+        if app
+            .pending_url
+            .as_ref()
+            .is_some_and(|(at, _)| at.elapsed() >= Duration::from_millis(350))
+            && app.form.is_none()
+            && let Some((_, url)) = app.pending_url.take()
+            && url == app.input
+        {
+            app.load_input(url);
+        }
         app.messages();
         app.schedule();
         if app.status != app.last_status {
@@ -295,9 +336,18 @@ pub fn run(settings: Settings, initial: String, cancel: Cancel) -> Result<()> {
                 }
                 Event::Paste(s) => {
                     app.motion.pasted = Some(Instant::now());
-                    if app.form.is_some() {
-                        if let Some(form) = &mut app.form {
-                            form.rows[form.selected].1.push_str(&s);
+                    if let Some(form) = app.form.as_ref() {
+                        if app.form_choices(&form.rows[form.selected].0).is_empty()
+                            && app.focus == Some(UiAction::Field(form.selected))
+                        {
+                            let form = app.form.as_mut().unwrap();
+                            for ch in s.chars().filter(|ch| !ch.is_control()) {
+                                crate::text_input::edit(
+                                    &mut form.rows[form.selected].1,
+                                    &mut form.cursor,
+                                    KeyEvent::new(KeyCode::Char(ch), KeyModifiers::NONE),
+                                );
+                            }
                         }
                     } else {
                         app.load_input(s);
@@ -370,6 +420,8 @@ impl App {
             || self.jobs.iter().any(|j| j.started && !j.done)
     }
     fn load_input(&mut self, text: String) {
+        self.pending_url = None;
+        self.input_cursor = None;
         let trimmed = text.trim();
         let whole = state::expand(trimmed.trim_matches(['\'', '"']));
         let paths = if whole.is_file() {
@@ -579,6 +631,9 @@ impl App {
             }
             Page::Files => {
                 for f in &self.files {
+                    if !local_kinds(f).contains(&choice.kind.as_str()) {
+                        continue;
+                    }
                     self.jobs.push(Job {
                         title: f
                             .path
@@ -687,15 +742,12 @@ impl App {
     }
     fn options(&mut self) {
         let mut c = Choice::saved(&self.settings);
-        if self.page == Page::Files
-            && let Some(f) = self.files.get(self.selected)
-        {
-            c.kind = f.media.clone();
-            c.fmt = match f.media.as_str() {
-                "audio" => self.settings.last_audio_format.clone(),
-                "image" => self.settings.last_image_format.clone(),
-                _ => self.settings.last_video_format.clone(),
-            };
+        let kinds = self.kind_choices();
+        if !kinds.contains(&c.kind) {
+            c.kind = kinds.first().cloned().unwrap_or_else(|| "video".into());
+            let mut saved = self.settings.clone();
+            saved.last_kind = c.kind.clone();
+            c = Choice::saved(&saved);
         }
         let rows = vec![
             ("kind".into(), c.kind),
@@ -714,12 +766,15 @@ impl App {
             ),
             ("strip_exif".into(), c.strip_exif.to_string()),
         ];
+        self.focus = Some(UiAction::Field(1));
         self.form = Some(Form {
             title: "Convert options · ↑↓ field · ←→ choices · Ctrl+U clear · Ctrl+S Run".into(),
             rows,
             selected: 1,
             purpose: "convert".into(),
+            cursor: None,
         });
+        self.normalize_convert();
     }
     fn settings_form(&mut self) {
         let value = serde_json::to_value(&self.settings).unwrap();
@@ -741,11 +796,13 @@ impl App {
             )
         })
         .collect();
+        self.focus = Some(UiAction::Field(0));
         self.form = Some(Form {
             title: "Settings".into(),
             rows,
             selected: 0,
             purpose: "settings".into(),
+            cursor: None,
         });
     }
     fn submit_form(&mut self) -> Result<()> {
@@ -825,7 +882,10 @@ impl App {
             Ok(())
         })();
         match result {
-            Ok(()) => self.form = None,
+            Ok(()) => {
+                self.form = None;
+                self.focus = None;
+            }
             Err(e) => self.status = format!("{e:#}"),
         }
         Ok(())
@@ -836,6 +896,27 @@ impl App {
         }
         if self.browser.is_some() {
             return self.browser_key(k);
+        }
+        if let Some((index, values, selected)) = self.dropdown.clone() {
+            match k.code {
+                KeyCode::Esc => self.dropdown = None,
+                KeyCode::Up | KeyCode::BackTab => {
+                    self.dropdown = Some((
+                        index,
+                        values.clone(),
+                        (selected + values.len() - 1) % values.len(),
+                    ))
+                }
+                KeyCode::Down | KeyCode::Tab => {
+                    self.dropdown = Some((index, values.clone(), (selected + 1) % values.len()))
+                }
+                KeyCode::Enter | KeyCode::Char(' ') => {
+                    self.set_form_value(index, values[selected].clone());
+                    self.dropdown = None;
+                }
+                _ => (),
+            }
+            return Ok(false);
         }
         if let Some(selected) = self.theme_picker {
             match k.code {
@@ -946,13 +1027,72 @@ impl App {
             return Ok(false);
         }
         if self.form.is_some() {
+            if k.code == KeyCode::Esc {
+                self.form = None;
+                self.focus = None;
+                return Ok(false);
+            }
             if k.modifiers.contains(KeyModifiers::CONTROL) && k.code == KeyCode::Char('s') {
                 self.submit_form()?;
+                return Ok(false);
+            }
+            if k.code == KeyCode::Tab || k.code == KeyCode::BackTab {
+                let form = self.form.as_ref().unwrap();
+                let mut targets = self
+                    .visible_form_fields(form)
+                    .into_iter()
+                    .map(UiAction::Field)
+                    .collect::<Vec<_>>();
+                targets.extend([UiAction::Submit, UiAction::Close]);
+                let current = self.focus.clone().unwrap_or(UiAction::Field(form.selected));
+                let index = targets.iter().position(|a| *a == current).unwrap_or(0);
+                let back = k.code == KeyCode::BackTab || k.modifiers.contains(KeyModifiers::SHIFT);
+                let next = targets[if back {
+                    (index + targets.len() - 1) % targets.len()
+                } else {
+                    (index + 1) % targets.len()
+                }]
+                .clone();
+                self.focus = Some(next.clone());
+                if let UiAction::Field(i) = next {
+                    let form = self.form.as_mut().unwrap();
+                    form.selected = i;
+                    form.cursor = None;
+                }
+                return Ok(false);
+            }
+            if matches!(self.focus, Some(UiAction::Submit | UiAction::Close)) {
+                if matches!(k.code, KeyCode::Enter | KeyCode::Char(' ')) {
+                    self.activate(self.focus.clone().unwrap())?;
+                } else if matches!(k.code, KeyCode::Left | KeyCode::Right) {
+                    self.focus = Some(if self.focus == Some(UiAction::Submit) {
+                        UiAction::Close
+                    } else {
+                        UiAction::Submit
+                    });
+                }
                 return Ok(false);
             }
             let selected = self.form.as_ref().unwrap().selected;
             let key = self.form.as_ref().unwrap().rows[selected].0.clone();
             let options = self.form_choices(&key);
+            if self.form.as_ref().unwrap().purpose == "settings"
+                && !options.is_empty()
+                && matches!(k.code, KeyCode::Enter | KeyCode::Char(' '))
+            {
+                let value = &self.form.as_ref().unwrap().rows[selected].1;
+                let i = options.iter().position(|v| v == value).unwrap_or(0);
+                self.dropdown = Some((selected, options, i));
+                return Ok(false);
+            }
+
+            if options.is_empty() {
+                let form = self.form.as_mut().unwrap();
+                if crate::text_input::edit(&mut form.rows[selected].1, &mut form.cursor, k) {
+                    return Ok(false);
+                }
+            }
+
             if matches!(k.code, KeyCode::Left | KeyCode::Right)
                 || matches!(k.code, KeyCode::Up | KeyCode::Down)
                     && ["format", "quality"].contains(&key.as_str())
@@ -982,50 +1122,71 @@ impl App {
                         .position(|i| *i == form.selected)
                         .unwrap_or(0);
                     let back = k.code == KeyCode::Up || k.modifiers.contains(KeyModifiers::SHIFT);
+                    form.cursor = None;
                     form.selected = visible[if back {
                         (i + visible.len() - 1) % visible.len()
                     } else {
                         (i + 1) % visible.len()
                     }];
+                    self.focus = Some(UiAction::Field(form.selected));
                 }
-                KeyCode::Char('u') if k.modifiers.contains(KeyModifiers::CONTROL) => {
-                    form.rows[selected].1.clear()
-                }
-                KeyCode::Backspace => {
-                    form.rows[selected].1.pop();
-                }
-                KeyCode::Char(c) => form.rows[form.selected].1.push(c),
                 _ => (),
             }
             return Ok(false);
         }
         if self.editing {
-            match k.code {
-                KeyCode::Down if matches!(self.page, Page::History | Page::Sites) => {
-                    self.editing = false
+            if crate::text_input::edit(&mut self.input, &mut self.input_cursor, k) {
+                self.selected = 0;
+                if self.page == Page::Download {
+                    let text = self.input.trim();
+                    if !text.contains(char::is_whitespace)
+                        && (text.starts_with("http://")
+                            || text.starts_with("https://")
+                            || text.contains('.'))
+                        && self.info.as_ref().and_then(|i| i["webpage_url"].as_str()) != Some(text)
+                    {
+                        self.pending_url = Some((Instant::now(), self.input.clone()));
+                    } else {
+                        self.pending_url = None;
+                    }
                 }
-                KeyCode::Esc | KeyCode::Tab => self.editing = false,
+                return Ok(false);
+            }
+            match k.code {
+                KeyCode::Tab | KeyCode::BackTab => {
+                    self.editing = false;
+                    self.focus = if k.code == KeyCode::BackTab
+                        || k.modifiers.contains(KeyModifiers::SHIFT)
+                    {
+                        self.focusable_buttons.last().cloned()
+                    } else {
+                        self.focusable_buttons.first().cloned()
+                    };
+                }
+                KeyCode::Esc => {
+                    self.input_cursor = None;
+                }
+                KeyCode::Down if self.item_count() > 0 => {
+                    self.editing = false;
+                    self.focus = Some(UiAction::Select(self.selected));
+                }
                 KeyCode::Enter => {
-                    let input = self.input.clone();
-                    if self.page == Page::Download || self.page == Page::Files {
-                        self.load_input(input)
+                    if matches!(self.page, Page::Download | Page::Files) {
+                        self.load_input(self.input.clone());
                     } else {
                         self.editing = false;
                     }
                 }
-                KeyCode::Backspace => {
-                    self.input.pop();
-                    self.selected = 0;
-                }
-                KeyCode::Char('u') if k.modifiers.contains(KeyModifiers::CONTROL) => {
-                    self.input.clear()
-                }
-                KeyCode::Char(c) => {
-                    self.input.push(c);
-                    self.selected = 0;
-                }
                 _ => (),
             }
+            return Ok(false);
+        }
+        if matches!(self.page, Page::Download | Page::Files)
+            && matches!(k.code, KeyCode::Enter | KeyCode::Char(' '))
+            && let Some(action @ (UiAction::Key(_) | UiAction::Retry | UiAction::CancelJob(_))) =
+                self.focus.clone()
+        {
+            self.activate(action)?;
             return Ok(false);
         }
         match k.code {
@@ -1137,12 +1298,16 @@ impl App {
                     e.selected = !e.selected
                 }
             }
-            KeyCode::Up => self.selected = self.selected.saturating_sub(1),
+            KeyCode::Up => {
+                self.selected = self.selected.saturating_sub(1);
+                self.focus = Some(UiAction::Select(self.selected));
+            }
             KeyCode::Down => {
                 self.selected = self
                     .selected
                     .saturating_add(1)
-                    .min(self.item_count().saturating_sub(1))
+                    .min(self.item_count().saturating_sub(1));
+                self.focus = Some(UiAction::Select(self.selected));
             }
             KeyCode::Char('r') => {
                 if self.page == Page::Files && self.selected < self.files.len() {
@@ -1193,7 +1358,20 @@ impl App {
                     ));
                 });
             }
-            KeyCode::Tab => self.editing = true,
+            KeyCode::Tab | KeyCode::BackTab => {
+                let back = k.code == KeyCode::BackTab || k.modifiers.contains(KeyModifiers::SHIFT);
+                let index = self
+                    .focus
+                    .as_ref()
+                    .and_then(|a| self.focusable_buttons.iter().position(|b| a == b));
+                let next = if back {
+                    index.and_then(|i| i.checked_sub(1))
+                } else {
+                    Some(index.map(|i| i + 1).unwrap_or(0))
+                };
+                self.focus = next.and_then(|i| self.focusable_buttons.get(i)).cloned();
+                self.editing = self.focus.is_none();
+            }
             _ => (),
         }
         Ok(false)
@@ -1270,6 +1448,7 @@ impl App {
     }
     fn draw(&mut self, f: &mut Frame) {
         self.draw_original(f);
+        crate::terminal_colors::adapt(f.buffer_mut(), crate::terminal_colors::truecolor());
     }
 }
 #[path = "presentation.rs"]

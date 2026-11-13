@@ -44,6 +44,7 @@ def main():
                 app.settle(0.15)
                 app.send("t")
                 app.wait("Themes · live preview")
+                app.settle(0.15)
                 assert any(
                     "›" in row and "✓ gingertea" in row for row in app.screen().splitlines()
                 ), "Esc did not restore the previous theme"

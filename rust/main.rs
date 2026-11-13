@@ -3,6 +3,8 @@ mod download;
 mod media;
 mod motion;
 mod state;
+mod terminal_colors;
+mod text_input;
 mod tools;
 mod ui;
 use anyhow::{Result, bail};

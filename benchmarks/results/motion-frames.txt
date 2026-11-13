@@ -7,7 +7,7 @@ Startup
                         #·············· ··························  ···   ···   ···········  ···
                          ······· ······  ····· ······· ···········  ···   ···   ···········  ···
 
-  gingertea 0.3.0  ·  yt-dlp …  ·  saving to /var/folders/l4/q6_zrr416rl_33m8lgd46kcw0000gn/T/gingertea-motion-7_i2o1w
+  gingertea 0.3.0  ·  yt-dlp …  ·  saving to /var/folders/l4/q6_zrr416rl_33m8lgd46kcw0000gn/T/gingertea-motion-dlatu0s
 
    Download    Convert files
   ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -148,11 +148,11 @@ Restored convert dialog
               │  ╭Clip────────────────────────────────────╮  ╭Extras──────────────────────────────────╮  │
               │  │                                        │  │                                        │  │
               │  │ Start               End                │  │ Subtitles                          Off │  │
-              │  │  optional            optional          │  │ Languages                              │  │
-              │  │                                        │  │ SponsorBlock                       Off │  │
-              │  │ Whole video if blank                   │  │ Chapters                           Off │  │
-              │  │ 1:30 · 90 · 1m30s                      │  │ Volume                             Off │  │
+              │  │  optional            optional          │  │ Languages            optional          │  │
               │  │
+                                                                                  MP4 by default
+                                           [d] Download          [c] Convert
+
 
   ─Downloads──────────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -253,7 +253,7 @@ Finished
   ─Downloads──────────────────────────────────────────────────────────────────────────────────────────────────────
 
   ✓ A cup of ginger tea                                                                       MP4 · best
-    ████████████████████████  ✓ Saved → /var/folders/l4/q6_zrr416rl_33m8lgd46kcw0000gn/T/gingertea-motion-7_i2o1wn
+    ████████████████████████  ✓ Saved → /var/folders/l4/q6_zrr416rl_33m8lgd46kcw0000gn/T/gingertea-motion-dlatu0st
 
 
 

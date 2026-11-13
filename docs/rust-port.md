@@ -200,3 +200,50 @@ at 120×46 and 120×12. All 12 checks pass; results are in
 `benchmarks/results/themes.json`. Rust tests, formatting and warning-free Clippy
 also pass. Risks: the native Terminal window cannot be inspected through computer
 use in this environment; interaction verification uses controlled PTY sessions.
+
+
+## Rendered colors and control behavior
+
+Root causes: inherited `NO_COLOR=1` suppressed Crossterm's color output even
+though the selected theme was saved. Ratatui and the input layer link different
+Crossterm versions, so both output flags must be enabled. The interactive TUI now
+explicitly enables its theme colors without modifying the parent environment or
+CLI behavior. Apple Terminal receives indexed 256-color approximations; terminals
+advertising truecolor retain RGB. Button and selected-row text chooses contrast
+from its fill, matching Textual's auto-color behavior in dark and light themes.
+
+The previous renderer also had no keyboard button focus, reused the selected
+field as focus, and edited text only at the end. Focus is now explicit: Tab and
+Shift+Tab reach action buttons, Enter/Space activates them, focused buttons use
+the original brighter fill and accent text, Cancel receives the original error
+fill, focused options use accent fills and inactive selections use panel fills.
+Format/quality panels show their focused border; hover feedback is separate.
+Mouse selections preserve focus and scrolling file-list hit regions follow the
+visible viewport. Settings choices open dropdowns. Text fields support caret
+movement, middle insertion/deletion and pasting at the caret; enum fields ignore
+arbitrary text. Closing a modal clears its controls from the navigation targets.
+
+Typed URLs load after the original 350 ms debounce. Convert choices are limited
+to source dimensions; mixed batches expose the union of applicable conversion
+kinds and enqueue only compatible files. Changing kind/format normalizes the
+quality selection instead of retaining an invalid or invisible value.
+
+Verification: `benchmarks/ui_controls_check.py` reconstructs per-cell foreground,
+background and bold styles from real PTY output, rather than checking only text
+or saved settings. Its 13 checks cover actual dark/light output under
+`NO_COLOR=1` with Apple Terminal capabilities, restart persistence, middle editing,
+settings dropdowns, Save/Cancel focus and activation, source quality limits,
+typed URL loading, main buttons, keyboard/mouse format selection, file selection,
+and a real mixed-file conversion. Results: `benchmarks/results/ui-controls.json`.
+The theme test now waits for the reopened picker paint before inspecting its
+selection, avoiding a race with the previous screen.
+
+All 26 Rust tests pass, along with warning-free Clippy, the release build, the
+45-row original layout comparison, 12 full/compact theme checks, motion checks,
+and local real-media smoke checks. Motion verification after completion measured
+0 bytes/s and 0 additional CPU time over three seconds (5.83 MiB RSS).
+
+Risks: these checks verify controlled terminal output and interactions, not a
+native Terminal screenshot or every optional codec/remote-site combination.
+The original application's full state space is larger than the tested paths;
+the 45-row comparison covers the empty workspace, not every menu state.

@@ -1,0 +1,18 @@
+{
+  "passed": [
+    "Dark/light colors render under NO_COLOR=1 in Apple Terminal",
+    "Caret editing inserts in the middle",
+    "Settings dropdown selects with arrows/Enter",
+    "Tab focuses Save with visible color feedback; Space saves",
+    "Focused Cancel discards edits",
+    "Quality menu offers only resolutions the source has",
+    "Typed URL loads after debounce",
+    "Main buttons focus with Tab and activate with Enter",
+    "Format arrow selection moves the accent fill",
+    "Mouse selection and inactive selection use distinct fills",
+    "File selection gets a visible focused fill",
+    "Mixed batches offer all applicable kinds and convert only compatible files",
+    "Saved theme renders after restart"
+  ],
+  "count": 13
+}

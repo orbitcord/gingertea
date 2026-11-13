@@ -74,6 +74,22 @@ fn inset(r: Rect, x: u16, y: u16) -> Rect {
         r.height.saturating_sub(y * 2),
     )
 }
+// Match Textual's auto text contrast on filled buttons and selected options.
+fn on_fill(fill: Color, alpha: f64) -> Color {
+    let Color::Rgb(r, g, b) = fill else {
+        return Color::White;
+    };
+    let brightness = (299. * r as f64 + 587. * g as f64 + 114. * b as f64) / 255000.;
+    motion::mix(
+        fill,
+        if brightness < 0.5 {
+            Color::Rgb(255, 255, 255)
+        } else {
+            Color::Rgb(0, 0, 0)
+        },
+        alpha,
+    )
+}
 fn label(key: &str) -> &str {
     match key {
         "download_dir" => "Save downloads to",
@@ -98,6 +114,7 @@ fn display_value(key: &str, value: &str) -> String {
         ("animations" | "chapters" | "loudnorm", "true") => "On".into(),
         ("animations" | "chapters" | "loudnorm", "false") => "Off".into(),
         ("cookies_browser", "") => "Off".into(),
+        ("cookies_browser", value) => title_case(value),
         ("subtitles", "embed") => "Inside the video".into(),
         ("subtitles", "srt") => "Separate .srt".into(),
         ("subtitles" | "sponsorblock", "off") => "Off".into(),
@@ -210,8 +227,12 @@ impl App {
         action: UiAction,
         p: TeaColors,
     ) {
-        let hovered = self.hovered.as_ref() == Some(&action);
-        let fill = if primary {
+        let hovered =
+            self.hovered.as_ref() == Some(&action) || self.focus.as_ref() == Some(&action);
+        let cancel_focused = action == UiAction::Close && self.focus == Some(UiAction::Close);
+        let fill = if cancel_focused {
+            p.error
+        } else if primary {
             if hovered {
                 motion::mix(p.primary, p.foreground, 0.12)
             } else {
@@ -222,8 +243,8 @@ impl App {
         } else {
             p.panel
         };
-        let color = if primary {
-            p.background
+        let color = if primary || cancel_focused {
+            on_fill(fill, 0.90)
         } else if hovered {
             p.primary
         } else {
@@ -238,11 +259,12 @@ impl App {
                 Rect::new(rect.x, rect.y + rect.height / 2, rect.width, 1),
             );
         }
+        self.focusable_buttons.push(action.clone());
         self.hit(rect, action);
     }
     fn field(&mut self, f: &mut Frame, rect: Rect, index: usize, form: &Form, p: TeaColors) {
         let (key, value) = &form.rows[index];
-        let selected = index == form.selected;
+        let selected = self.focus == Some(UiAction::Field(index));
         let fill = if selected {
             motion::mix(p.background, p.primary, 0.25)
         } else {
@@ -262,6 +284,22 @@ impl App {
             })),
             rect,
         );
+        if selected
+            && self.focus == Some(UiAction::Field(index))
+            && self.form_choices(key).is_empty()
+        {
+            let (visible, cursor) = crate::text_input::visible(
+                value,
+                form.cursor,
+                rect.width.saturating_sub(2) as usize,
+            );
+            f.render_widget(
+                Paragraph::new(format!(" {visible}"))
+                    .style(Style::default().bg(fill).fg(p.foreground)),
+                rect,
+            );
+            f.set_cursor_position((rect.x + 1 + cursor, rect.y));
+        }
         self.hit(rect, UiAction::Field(index));
     }
     pub(super) fn draw_original(&mut self, f: &mut Frame) {
@@ -269,6 +307,7 @@ impl App {
         let p = banner::colors(&self.settings.theme);
         let now = Instant::now();
         self.hitboxes.clear();
+        self.focusable_buttons.clear();
         f.render_widget(
             Block::default().style(Style::default().bg(p.background).fg(p.foreground)),
             area,
@@ -349,7 +388,10 @@ impl App {
             let rect = Rect::new(x, workspace.tabs.y, text.len() as u16, 1).intersection(area);
             f.render_widget(
                 Paragraph::new(text).style(if page == base {
-                    Style::default().bg(p.primary).fg(p.background).bold()
+                    Style::default()
+                        .bg(p.primary)
+                        .fg(on_fill(p.primary, 0.90))
+                        .bold()
                 } else {
                     Style::default().fg(p.muted)
                 }),
@@ -396,7 +438,12 @@ impl App {
                         if self.input.is_empty() {
                             placeholder.to_owned()
                         } else {
-                            self.input.clone()
+                            crate::text_input::visible(
+                                &self.input,
+                                self.input_cursor,
+                                inner.width.saturating_sub(4) as usize,
+                            )
+                            .0
                         },
                         Style::default().fg(if self.input.is_empty() {
                             p.muted
@@ -417,12 +464,12 @@ impl App {
                 f.set_cursor_position((
                     inner.x
                         + 3
-                        + self
-                            .input
-                            .chars()
-                            .count()
-                            .min(inner.width.saturating_sub(4) as usize)
-                            as u16,
+                        + crate::text_input::visible(
+                            &self.input,
+                            self.input_cursor,
+                            inner.width.saturating_sub(4) as usize,
+                        )
+                        .1,
                     inner.y,
                 ));
             }
@@ -496,14 +543,17 @@ impl App {
         }
         if matches!(self.page, Page::History | Page::Sites) {
             self.hitboxes.clear();
+            self.focusable_buttons.clear();
             self.draw_list_dialog(f, area, p);
         }
         if self.choosing {
             self.hitboxes.clear();
+            self.focusable_buttons.clear();
             self.draw_playlist_dialog(f, area, p);
         }
         if let Some(form) = self.form.clone() {
             self.hitboxes.clear();
+            self.focusable_buttons.clear();
             if form.purpose == "convert" {
                 self.draw_convert(f, area, p, &form)
             } else {
@@ -512,6 +562,7 @@ impl App {
         }
         if let Some(browser) = &self.browser {
             self.hitboxes.clear();
+            self.focusable_buttons.clear();
             let popup = popup(area, 80, 32);
             f.render_widget(Clear, popup);
             f.render_widget(
@@ -550,7 +601,8 @@ impl App {
                 Rect::new(rect.x, rect.y, rect.width, 1),
             );
             f.render_stateful_widget(
-                List::new(rows).highlight_style(Style::default().bg(p.primary).fg(p.background)),
+                List::new(rows)
+                    .highlight_style(Style::default().bg(p.primary).fg(on_fill(p.primary, 0.90))),
                 Rect::new(
                     rect.x,
                     rect.y + 2,
@@ -582,6 +634,7 @@ impl App {
         }
         if let Some(selected) = self.theme_picker {
             self.hitboxes.clear();
+            self.focusable_buttons.clear();
             let popup = popup(area, 52, 18);
             f.render_widget(Clear, popup);
             f.render_widget(
@@ -619,9 +672,12 @@ impl App {
                 .with_offset(self.theme_scroll)
                 .with_selected(Some(selected));
             f.render_stateful_widget(
-                List::new(rows)
-                    .highlight_symbol("› ")
-                    .highlight_style(Style::default().bg(p.primary).fg(p.background).bold()),
+                List::new(rows).highlight_symbol("› ").highlight_style(
+                    Style::default()
+                        .bg(p.primary)
+                        .fg(on_fill(p.primary, 0.90))
+                        .bold(),
+                ),
                 body,
                 &mut state,
             );
@@ -642,6 +698,61 @@ impl App {
                 .style(Style::default().fg(p.muted)),
                 Rect::new(rect.x, rect.bottom().saturating_sub(1), rect.width, 1),
             );
+        }
+        if let Some((index, values, selected)) = self.dropdown.clone() {
+            let anchor = self
+                .hitboxes
+                .iter()
+                .find(|(_, a)| *a == UiAction::Field(index))
+                .map(|(r, _)| *r)
+                .unwrap_or(Rect::new(area.x + 3, area.y + 3, 30, 1));
+            let height = (values.len() as u16 + 2).min(area.height.saturating_sub(2));
+            let y = if anchor.y + 1 + height < area.bottom() {
+                anchor.y + 1
+            } else {
+                anchor.y.saturating_sub(height)
+            };
+            let rect = Rect::new(
+                anchor.x,
+                y,
+                anchor
+                    .width
+                    .max(18)
+                    .min(area.right().saturating_sub(anchor.x)),
+                height,
+            )
+            .intersection(area);
+            f.render_widget(Clear, rect);
+            f.render_widget(
+                Block::bordered()
+                    .border_style(Style::default().fg(p.primary))
+                    .style(Style::default().bg(p.background)),
+                rect,
+            );
+            let body = inset(rect, 1, 1);
+            let key = self.form.as_ref().unwrap().rows[index].0.clone();
+            let rows = values
+                .iter()
+                .map(|v| ListItem::new(display_value(&key, v)))
+                .collect::<Vec<_>>();
+            let mut state = ListState::default().with_selected(Some(selected));
+            f.render_stateful_widget(
+                List::new(rows)
+                    .highlight_style(Style::default().bg(p.primary).fg(on_fill(p.primary, 0.90))),
+                body,
+                &mut state,
+            );
+            self.hitboxes.clear();
+            self.focusable_buttons.clear();
+            for row in 0..body
+                .height
+                .min(values.len().saturating_sub(state.offset()) as u16)
+            {
+                self.hit(
+                    Rect::new(body.x, body.y + row, body.width, 1),
+                    UiAction::DropdownValue(index, values[state.offset() + row as usize].clone()),
+                );
+            }
         }
     }
 
@@ -918,11 +1029,13 @@ impl App {
         }
         let button_height = if short { 1 } else { 3 };
         let rows = body.height.saturating_sub(button_height + 1);
+        let focused = !self.editing && matches!(self.focus, Some(UiAction::Select(_)));
         let mut state = ListState::default().with_selected(Some(self.selected));
         let entries = self
             .files
             .iter()
-            .map(|file| {
+            .enumerate()
+            .map(|(index, file)| {
                 let video = file.video.as_ref();
                 let dimensions = video
                     .map(|v| {
@@ -948,20 +1061,32 @@ impl App {
                             dimensions,
                             duration(file.duration)
                         ),
-                        Style::default().fg(p.muted),
+                        Style::default().fg(if index == self.selected {
+                            if focused { p.background } else { p.foreground }
+                        } else {
+                            p.muted
+                        }),
                     ),
                 ]))
             })
             .collect::<Vec<_>>();
         f.render_stateful_widget(
-            List::new(entries).highlight_style(Style::default().bg(p.panel)),
+            List::new(entries).highlight_style(if focused {
+                Style::default()
+                    .bg(p.primary)
+                    .fg(on_fill(p.primary, 0.90))
+                    .bold()
+            } else {
+                Style::default().bg(p.panel).fg(p.foreground).bold()
+            }),
             Rect::new(body.x, body.y, body.width, rows),
             &mut state,
         );
-        for i in 0..rows.min(self.files.len() as u16) {
+        let offset = state.offset();
+        for i in 0..rows.min(self.files.len().saturating_sub(offset) as u16) {
             self.hit(
                 Rect::new(body.x, body.y + i, body.width, 1),
-                UiAction::Select(i as usize),
+                UiAction::Select(offset + i as usize),
             );
         }
         let y = body.bottom().saturating_sub(button_height);
@@ -1253,7 +1378,13 @@ impl App {
                 Block::bordered()
                     .border_type(BorderType::Rounded)
                     .title(Span::styled(*title, Style::default().fg(p.muted).bold()))
-                    .border_style(Style::default().fg(p.panel)),
+                    .border_style(Style::default().fg(
+                        if self.focus == Some(UiAction::Field(i + 1)) && i < 2 {
+                            p.primary
+                        } else {
+                            p.panel
+                        },
+                    )),
                 panels[i],
             );
         }
@@ -1271,18 +1402,39 @@ impl App {
                         format!("{:<5} ", fmt.to_uppercase()),
                         Style::default().bold(),
                     ),
-                    Span::styled(note.to_owned(), Style::default().fg(p.muted)),
+                    Span::styled(
+                        note.to_owned(),
+                        Style::default().fg(if fmt == selected_format {
+                            if self.focus == Some(UiAction::Field(1)) {
+                                on_fill(p.primary, 0.90)
+                            } else {
+                                p.foreground
+                            }
+                        } else {
+                            p.muted
+                        }),
+                    ),
                 ]))
+                .style(
+                    if self.hovered == Some(UiAction::Value(1, fmt.clone())) {
+                        Style::default().bg(p.panel)
+                    } else {
+                        Style::default()
+                    },
+                )
             })
             .collect::<Vec<_>>();
         let mut state =
             ListState::default().with_selected(formats.iter().position(|v| v == selected_format));
         let r = inset(panels[0], 2, 1);
         f.render_stateful_widget(
-            List::new(format_rows).highlight_style(if form.selected == 1 {
-                Style::default().bg(p.primary).fg(p.background)
+            List::new(format_rows).highlight_style(if self.focus == Some(UiAction::Field(1)) {
+                Style::default()
+                    .bg(p.primary)
+                    .fg(on_fill(p.primary, 0.90))
+                    .bold()
             } else {
-                Style::default().bg(p.panel)
+                Style::default().bg(p.panel).fg(p.foreground).bold()
             }),
             r,
             &mut state,
@@ -1298,7 +1450,15 @@ impl App {
         let r = inset(panels[1], 2, 1);
         let rows = qualities
             .iter()
-            .map(|q| ListItem::new(quality_label(kind, q, self.page == Page::Files)))
+            .map(|q| {
+                ListItem::new(quality_label(kind, q, self.page == Page::Files)).style(
+                    if self.hovered == Some(UiAction::Value(2, q.clone())) {
+                        Style::default().bg(p.panel)
+                    } else {
+                        Style::default()
+                    },
+                )
+            })
             .collect::<Vec<_>>();
         let mut state = ListState::default().with_selected(
             qualities
@@ -1306,10 +1466,13 @@ impl App {
                 .position(|v| v == field_value(form, "quality")),
         );
         f.render_stateful_widget(
-            List::new(rows).highlight_style(if form.selected == 2 {
-                Style::default().bg(p.primary).fg(p.background)
+            List::new(rows).highlight_style(if self.focus == Some(UiAction::Field(2)) {
+                Style::default()
+                    .bg(p.primary)
+                    .fg(on_fill(p.primary, 0.90))
+                    .bold()
             } else {
-                Style::default().bg(p.panel)
+                Style::default().bg(p.panel).fg(p.foreground).bold()
             }),
             r,
             &mut state,
@@ -1386,7 +1549,11 @@ impl App {
                 Rect::new(r.x, y, r.width.saturating_sub(width), 1),
             );
             let target = Rect::new(r.right() - width, y, width, 1);
-            let selected = form.selected == *index;
+            let selected = self.focus == Some(UiAction::Field(*index));
+            if self.form_choices(key).is_empty() {
+                self.field(f, target, *index, form, p);
+                continue;
+            }
             f.render_widget(
                 Paragraph::new(display_value(key, value))
                     .right_aligned()
@@ -1655,7 +1822,7 @@ impl App {
                     .fg(if self.editing {
                         p.foreground
                     } else {
-                        p.background
+                        on_fill(p.primary, 0.90)
                     }),
             ),
             body,
@@ -1729,7 +1896,8 @@ impl App {
             .collect::<Vec<_>>();
         let mut state = ListState::default().with_selected(Some(self.selected));
         f.render_stateful_widget(
-            List::new(rows).highlight_style(Style::default().bg(p.primary).fg(p.background)),
+            List::new(rows)
+                .highlight_style(Style::default().bg(p.primary).fg(on_fill(p.primary, 0.90))),
             body,
             &mut state,
         );
@@ -1807,16 +1975,17 @@ fn quality_label(kind: &str, q: &str, local: bool) -> String {
 
 impl App {
     pub(super) fn kind_choices(&self) -> Vec<String> {
-        let kinds = if self.page == Page::Files {
-            match self.files.get(self.selected).map(|f| f.media.as_str()) {
-                Some("audio") => vec!["audio"],
-                Some("image") => vec!["image"],
-                _ => vec!["video", "audio", "frames"],
-            }
-        } else {
-            vec!["video", "audio"]
-        };
-        kinds.into_iter().map(str::to_owned).collect()
+        ["video", "audio", "image", "frames"]
+            .into_iter()
+            .filter(|kind| {
+                if self.page == Page::Files {
+                    self.files.iter().any(|f| local_kinds(f).contains(kind))
+                } else {
+                    ["video", "audio"].contains(kind)
+                }
+            })
+            .map(str::to_owned)
+            .collect()
     }
     pub(super) fn format_choices(&self, kind: &str) -> Vec<String> {
         let local = self.page == Page::Files;
@@ -1860,7 +2029,56 @@ impl App {
             _ if ["gif", "apng", "webp"].contains(&fmt) => vec!["480", "360", "240"],
             _ => vec!["best", "2160", "1440", "1080", "720", "480", "360"],
         };
-        choices.into_iter().map(str::to_owned).collect()
+        let limit = if self.page == Page::Files {
+            self.files
+                .iter()
+                .filter(|f| local_kinds(f).contains(&kind))
+                .filter_map(|f| f.video.as_ref())
+                .map(|v| {
+                    if kind == "image" {
+                        media::number(&v["width"]).max(media::number(&v["height"]))
+                    } else {
+                        media::number(&v["height"])
+                    }
+                })
+                .fold(0.0f64, f64::max)
+        } else {
+            self.info
+                .as_ref()
+                .map(|info| {
+                    info["formats"]
+                        .as_array()
+                        .map(|formats| {
+                            formats
+                                .iter()
+                                .map(|v| media::number(&v["height"]))
+                                .fold(media::number(&info["height"]), f64::max)
+                        })
+                        .unwrap_or_else(|| media::number(&info["height"]))
+                })
+                .unwrap_or(0.)
+        };
+        let mut result: Vec<String> = choices
+            .into_iter()
+            .filter(|q| {
+                limit <= 0.
+                    || !["video", "image"].contains(&kind)
+                    || *q == "best"
+                    || kind == "image" && *q == "50"
+                    || q.parse::<f64>().is_ok_and(|n| {
+                        if kind == "image" {
+                            n < limit
+                        } else {
+                            n <= limit
+                        }
+                    })
+            })
+            .map(str::to_owned)
+            .collect();
+        if result.is_empty() {
+            result.push("240".into());
+        }
+        result
     }
     pub(super) fn visible_form_fields(&self, form: &Form) -> Vec<usize> {
         if form.purpose != "convert" {
@@ -1916,7 +2134,32 @@ impl App {
             _ => vec![],
         }
     }
+    pub(super) fn normalize_convert(&mut self) {
+        let Some(form) = &self.form else {
+            return;
+        };
+        if form.purpose != "convert" {
+            return;
+        }
+        let kind = field_value(form, "kind").to_owned();
+        let formats = self.format_choices(&kind);
+        let fmt = field_value(form, "format").to_owned();
+        let fmt = if formats.contains(&fmt) {
+            fmt
+        } else {
+            formats.first().cloned().unwrap_or_default()
+        };
+        let qualities = self.quality_choices(&kind, &fmt);
+        let form = self.form.as_mut().unwrap();
+        let index = field_index(form, "format");
+        form.rows[index].1 = fmt;
+        let index = field_index(form, "quality");
+        if !qualities.contains(&form.rows[index].1) {
+            form.rows[index].1 = qualities.first().cloned().unwrap_or_else(|| "best".into());
+        }
+    }
     pub(super) fn set_form_value(&mut self, index: usize, value: String) {
+        self.focus = Some(UiAction::Field(index));
         if let Some(form) = &mut self.form {
             form.selected = index;
             form.rows[index].1 = value.clone();
@@ -1936,45 +2179,10 @@ impl App {
                 }
             }
         }
+        self.normalize_convert();
     }
-    pub(super) fn mouse(&mut self, event: MouseEvent) -> Result<()> {
-        let point = Position::new(event.column, event.row);
-        let action = self
-            .hitboxes
-            .iter()
-            .rev()
-            .find(|(r, _)| r.contains(point))
-            .map(|(_, a)| a.clone());
-        if event.kind == MouseEventKind::Moved {
-            if self.hovered != action {
-                if let Some(UiAction::Theme(index)) = action.as_ref() {
-                    self.preview_theme(*index);
-                }
-                self.hovered = action;
-                self.dirty = true;
-            }
-            return Ok(());
-        }
-        if matches!(
-            event.kind,
-            MouseEventKind::ScrollDown | MouseEventKind::ScrollUp
-        ) {
-            let code = if event.kind == MouseEventKind::ScrollDown {
-                KeyCode::Down
-            } else {
-                KeyCode::Up
-            };
-            let editing = self.editing;
-            self.editing = false;
-            self.key(KeyEvent::new(code, KeyModifiers::NONE))?;
-            self.editing = editing;
-            self.dirty = true;
-            return Ok(());
-        }
-        if event.kind != MouseEventKind::Down(MouseButton::Left) {
-            return Ok(());
-        }
-        let Some(action) = action else { return Ok(()) };
+    pub(super) fn activate(&mut self, action: UiAction) -> Result<()> {
+        self.focus = Some(action.clone());
         match action {
             UiAction::Key('\t') => self.editing = false,
             UiAction::Key('f') if self.form.as_ref().is_some_and(|f| f.purpose == "settings") => {
@@ -1992,6 +2200,7 @@ impl App {
             UiAction::Close => {
                 if self.form.is_some() {
                     self.form = None;
+                    self.focus = None;
                 } else if self.choosing {
                     self.cancel_selection();
                 } else {
@@ -2003,7 +2212,23 @@ impl App {
             UiAction::Field(index) => {
                 if let Some(form) = &mut self.form {
                     form.selected = index;
+                    form.cursor = None;
                 }
+                let key = self.form.as_ref().unwrap().rows[index].0.clone();
+                let values = self.form_choices(&key);
+                if !values.is_empty() {
+                    let value = &self.form.as_ref().unwrap().rows[index].1;
+                    let i = values.iter().position(|v| v == value).unwrap_or(0);
+                    if self.form.as_ref().unwrap().purpose == "settings" {
+                        self.dropdown = Some((index, values, i));
+                    } else {
+                        self.set_form_value(index, values[(i + 1) % values.len()].clone());
+                    }
+                }
+            }
+            UiAction::DropdownValue(index, value) => {
+                self.set_form_value(index, value);
+                self.dropdown = None;
             }
             UiAction::Value(index, value) => self.set_form_value(index, value),
             UiAction::CancelJob(i) => {
@@ -2044,11 +2269,65 @@ impl App {
         self.dirty = true;
         Ok(())
     }
+    pub(super) fn mouse(&mut self, event: MouseEvent) -> Result<()> {
+        let point = Position::new(event.column, event.row);
+        let action = self
+            .hitboxes
+            .iter()
+            .rev()
+            .find(|(r, _)| r.contains(point))
+            .map(|(_, a)| a.clone());
+        if event.kind == MouseEventKind::Moved {
+            if self.hovered != action {
+                if let Some(UiAction::Theme(index)) = action.as_ref() {
+                    self.preview_theme(*index);
+                }
+                self.hovered = action;
+                self.dirty = true;
+            }
+            return Ok(());
+        }
+        if matches!(
+            event.kind,
+            MouseEventKind::ScrollDown | MouseEventKind::ScrollUp
+        ) {
+            let code = if event.kind == MouseEventKind::ScrollDown {
+                KeyCode::Down
+            } else {
+                KeyCode::Up
+            };
+            let editing = self.editing;
+            self.editing = false;
+            self.key(KeyEvent::new(code, KeyModifiers::NONE))?;
+            self.editing = editing;
+            self.dirty = true;
+            return Ok(());
+        }
+        if event.kind != MouseEventKind::Down(MouseButton::Left) {
+            return Ok(());
+        }
+        let Some(action) = action else {
+            if self.dropdown.take().is_some() {
+                self.dirty = true;
+            }
+            return Ok(());
+        };
+        self.activate(action)?;
+        self.dirty = true;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn filled_controls_choose_contrast_from_fill_not_theme_background() {
+        let light = banner::colors("gingertea-light");
+        assert_ne!(on_fill(light.primary, 0.90), light.background);
+        assert_eq!(on_fill(Color::Rgb(255, 255, 255), 1.), Color::Rgb(0, 0, 0));
+        assert_eq!(on_fill(Color::Rgb(0, 0, 0), 1.), Color::Rgb(255, 255, 255));
+    }
     #[test]
     fn original_workspace_positions() {
         let r = Workspace::new(Rect::new(0, 0, 120, 46), 5, 3);

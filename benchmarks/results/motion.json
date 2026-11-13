@@ -1,7 +1,7 @@
 {
   "idle_after_queue_bytes_per_s": 0.0,
   "idle_after_queue_cpu_percent": 0.0,
-  "idle_after_queue_rss_mib": 5.5,
+  "idle_after_queue_rss_mib": 5.828125,
   "checks": [
     "character resolve",
     "paste acknowledgment",

@@ -110,6 +110,27 @@ def main():
                         assert label in footer_text, (label, footer_text)
                     results[-1]["live_shrink_to_60_columns"] = True
                 if width == 120:
+                    assert all(
+                        columns[i]
+                        and any(
+                            not row.strip()
+                            for row in rows[footer_y + 2 * i + 2 : footer_y + 2 * i + 3]
+                        )
+                        for i in range(len(columns) - 1)
+                    )
+                    x = columns[0][0]
+                    y = footer_y + 1
+                    app.send(f"\x1b[<35;{x + 6};{y + 1}M")
+                    app.settle(0.15)
+                    painted = styles(app)
+                    assert all(painted[y, cell][2] == 208 for cell in range(x, x + 12)), (
+                        "Hover must solid-fill key and label"
+                    )
+                    assert painted[y, columns[0][1]][2] != 208
+                    app.send("\x1b[<35;1;1M")
+                    app.settle(0.15)
+                    assert styles(app)[y, x + 5][2] == 233, "Hover did not clear"
+                    results[-1]["solid_whole_button_hover"] = True
                     app.send("\tt")
                     app.wait("Themes · live preview")
                     app.settle(0.2)

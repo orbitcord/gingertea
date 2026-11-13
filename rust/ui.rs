@@ -108,6 +108,7 @@ enum UiAction {
     Theme(usize),
     ChoosePlaylist,
     PlaylistFirst,
+    PlaylistAll(bool),
     DropdownValue(usize, String),
     Retry,
     Browser(usize),
@@ -379,6 +380,14 @@ impl App {
         for (e, selected) in self.entries.iter_mut().zip(&self.playlist_backup) {
             e.selected = *selected;
         }
+    }
+    fn select_all_playlist(&mut self, selected: bool) {
+        for entry in &mut self.entries {
+            entry.selected = selected;
+        }
+        self.playlist_first.clear();
+        self.playlist_typing = false;
+        self.dirty = true;
     }
     fn download_selection(&mut self) {
         if let Ok(n) = self.playlist_first.parse::<usize>()
@@ -941,6 +950,8 @@ impl App {
             }
             match k.code {
                 KeyCode::Esc => self.cancel_selection(),
+                KeyCode::Char('a') => self.select_all_playlist(true),
+                KeyCode::Char('n') => self.select_all_playlist(false),
                 KeyCode::Char(c) if c.is_ascii_digit() => {
                     self.playlist_first.push(c);
                     self.playlist_typing = true;

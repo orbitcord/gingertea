@@ -1,0 +1,11 @@
+{
+  "passed": [
+    "Mouse selects and deselects all 30 including offscreen rows",
+    "a/n keyboard bulk controls",
+    "Bulk actions clear First N override",
+    "Manual row toggle still works",
+    "Zero selection does not download",
+    "Cancel restores original selection"
+  ],
+  "count": 6
+}

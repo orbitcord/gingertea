@@ -40,7 +40,7 @@
 
 
 
-
   ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-             d  download    e  choose    c  convert    a  audio         x  cancel    p  pause    h  history
-             s  settings    l  sites     v  paste      esc  url bar     t  themes    q  quit
+       d  download      e  choose      c  convert      a  audio           x  cancel      p  pause      h  history
+
+       s  settings      l  sites       v  paste        esc  url bar       t  themes      q  quit

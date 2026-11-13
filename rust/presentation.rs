@@ -197,6 +197,8 @@ fn footer_keys(files: bool, typing: bool) -> Vec<(&'static str, &'static str, Ui
     ]);
     keys
 }
+const FOOTER_GAP: usize = 5;
+const FOOTER_ROW_STEP: u16 = 2;
 fn footer_lines(keys: &[(&str, &str, UiAction)], width: u16) -> Vec<Vec<usize>> {
     let room = width.saturating_sub(4) as usize;
     for count in 1..=keys.len().max(1) {
@@ -208,7 +210,7 @@ fn footer_lines(keys: &[(&str, &str, UiAction)], width: u16) -> Vec<Vec<usize>> 
             next += len;
         }
         let columns = footer_columns(keys, &rows);
-        if columns.iter().sum::<usize>() + columns.len().saturating_sub(1) * 3 <= room {
+        if columns.iter().sum::<usize>() + columns.len().saturating_sub(1) * FOOTER_GAP <= room {
             return rows;
         }
     }
@@ -342,7 +344,7 @@ impl App {
         let short = area.height < 30;
         let keys = footer_keys(files, self.editing);
         let key_rows = footer_lines(&keys, area.width);
-        let footer_height = (key_rows.len() as u16 + 1)
+        let footer_height = (key_rows.len() as u16 * FOOTER_ROW_STEP)
             .max(2)
             .min(area.height.saturating_sub(4).max(2));
         let card_height = if files {
@@ -542,37 +544,43 @@ impl App {
             workspace.footer,
         );
         let columns = footer_columns(&keys, &key_rows);
-        let grid_width = columns.iter().sum::<usize>() + columns.len().saturating_sub(1) * 3;
+        let grid_width =
+            columns.iter().sum::<usize>() + columns.len().saturating_sub(1) * FOOTER_GAP;
         let grid_x =
             workspace.footer.x + workspace.footer.width.saturating_sub(grid_width as u16) / 2;
         for (row, indices) in key_rows
             .iter()
-            .take(workspace.footer.height.saturating_sub(1) as usize)
+            .take((workspace.footer.height / FOOTER_ROW_STEP) as usize)
             .enumerate()
         {
             let mut x = grid_x;
-            let y = workspace.footer.y + 1 + row as u16;
+            let y = workspace.footer.y + 1 + row as u16 * FOOTER_ROW_STEP;
             for (col, i) in indices.iter().enumerate() {
                 let (key, label, action) = &keys[*i];
+                let hovered = self.hovered.as_ref() == Some(action);
+                let fill = if hovered { p.primary } else { p.background };
+                let ink = if hovered {
+                    on_fill(fill, 0.90)
+                } else {
+                    p.foreground
+                };
                 let text = Line::from(vec![
                     Span::styled(
                         format!(" {key} "),
-                        Style::default().bg(p.panel).fg(p.foreground).bold(),
+                        Style::default()
+                            .bg(if hovered { fill } else { p.panel })
+                            .fg(ink)
+                            .bold(),
                     ),
                     Span::styled(
                         format!(" {label}"),
-                        Style::default().fg(if self.hovered.as_ref() == Some(action) {
-                            p.primary
-                        } else {
-                            p.muted
-                        }),
+                        Style::default().fg(if hovered { ink } else { p.muted }),
                     ),
                 ]);
-                let width = (key.len() + 3 + label.len()) as u16;
-                let rect = Rect::new(x, y, width, 1).intersection(workspace.footer);
-                f.render_widget(Paragraph::new(text), rect);
+                let rect = Rect::new(x, y, columns[col] as u16, 1).intersection(workspace.footer);
+                f.render_widget(Paragraph::new(text).style(Style::default().bg(fill)), rect);
                 self.hit(rect, action.clone());
-                x += columns[col] as u16 + 3;
+                x += columns[col] as u16 + FOOTER_GAP as u16;
             }
         }
         if self.toast.is_some()
@@ -1989,7 +1997,23 @@ impl App {
             .style(Style::default().fg(p.muted)),
             Rect::new(r.x + 18, r.y + 2, r.width.saturating_sub(18), 1),
         );
-        let body = Rect::new(r.x, r.y + 4, r.width, r.height.saturating_sub(8));
+        self.button(
+            f,
+            Rect::new(r.x, r.y + 4, 18.min(r.width), 1),
+            "[a] Select all",
+            false,
+            UiAction::PlaylistAll(true),
+            p,
+        );
+        self.button(
+            f,
+            Rect::new(r.x + 22, r.y + 4, 20.min(r.width.saturating_sub(22)), 1),
+            "[n] Deselect all",
+            false,
+            UiAction::PlaylistAll(false),
+            p,
+        );
+        let body = Rect::new(r.x, r.y + 6, r.width, r.height.saturating_sub(10));
         let rows = self
             .entries
             .iter()
@@ -2364,6 +2388,7 @@ impl App {
                 self.finish_theme(true);
             }
             UiAction::ChoosePlaylist => self.download_selection(),
+            UiAction::PlaylistAll(selected) => self.select_all_playlist(selected),
             UiAction::PlaylistFirst => self.playlist_typing = true,
             UiAction::Retry => {
                 let input = self.input.clone();
@@ -2469,7 +2494,7 @@ mod tests {
             let rows = footer_lines(&k, width);
             let columns = footer_columns(&k, &rows);
             assert!(
-                columns.iter().sum::<usize>() + columns.len().saturating_sub(1) * 3
+                columns.iter().sum::<usize>() + columns.len().saturating_sub(1) * FOOTER_GAP
                     <= width as usize - 4
             );
             assert!(

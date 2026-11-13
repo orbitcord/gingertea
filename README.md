@@ -56,7 +56,7 @@ URL, search, or dropped paths. Quoted paths and file URLs are accepted.
 | `1` / `2`, Ctrl+T | Download / Convert files |
 | `d` / `a` | Download selected videos / audio |
 | `c` | Format, quality, clips, subtitles, SponsorBlock and conversion extras |
-| `e`, ↑ / ↓, Space | Choose playlist items; First selects the first N |
+| `e`, ↑ / ↓, Space | Choose playlist items; `a` selects all, `n` deselects all; First selects the first N |
 | `p` / `x` | Pause waiting jobs / cancel first unfinished job |
 | `f` / `r` | Browse files / remove a local file or history record |
 | `h` | Searchable history; Enter opens, `d` reloads, `y` copies the URL |

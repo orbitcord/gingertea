@@ -46,7 +46,7 @@ def main():
             (output / "rust-design-restored.txt").write_text("\n".join(after).rstrip() + "\n")
             # These rows intentionally change for the requested shared gutters,
             # padded rule labels and balanced footer grid. Preserve the rest.
-            changed_rows = {8, 13, 14, 15, 17, 23, 43, 44, 45}
+            changed_rows = {8, 13, 14, 15, 17, 23, 42, 43, 44, 45}
             preserved_rows = [i for i in range(46) if i not in changed_rows]
             for row in preserved_rows:
                 assert before[row] == after[row], (

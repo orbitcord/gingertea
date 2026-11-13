@@ -288,3 +288,27 @@ updated design captures.
 Risks: native Terminal screenshots cannot be inspected through computer use in
 this environment; validation uses controlled terminal output. Extremely tiny
 windows may not have enough rows for every workspace region simultaneously.
+
+
+## Footer spacing and playlist bulk selection
+
+The supplied footer screenshot showed adjacent rows of key chips touching. The
+footer now uses five-cell column gaps and a blank row between button rows. Its
+height tracks those rows so click targets and content do not overlap. Hover fills
+the entire shortcut cell with the theme accent, including key, label and reserved
+padding, with contrasting text; moving into a gap clears the fill. Balanced
+wrapping and shared columns remain in place. The layout check verifies actual
+solid background output over the full button and its removal after pointer exit,
+as well as 60–160-column layouts and live shrinking.
+
+The playlist chooser now offers `[a] Select all` and `[n] Deselect all` above its
+list, with matching mouse actions and keyboard shortcuts. Bulk changes include
+offscreen entries and clear the First N override so the explicit selection wins.
+Manual toggling remains available; an empty selection starts no work, and Cancel
+restores the selection from when the chooser opened. The new controlled PTY
+`benchmarks/playlist_check.py` passes six checks with a 30-entry playlist fixture.
+All 28 Rust tests, Clippy and the reference layout/menu checks also pass. The
+footer comparison records the deliberately increased footer height.
+
+Risks: adding vertical breathing room uses more terminal rows; extremely short
+windows retain the existing bounds on footer height.

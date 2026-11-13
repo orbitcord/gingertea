@@ -12,6 +12,7 @@ from pathlib import Path
 
 import tomllib
 from compare import ROOT, RUST, Terminal, process_stats
+from terminal_cells import styles
 
 BACKEND = r"""#!/usr/bin/env python3
 import json, os, pathlib, sys, time
@@ -25,7 +26,7 @@ if '--dump-single-json' in args:
 else:
     folder=pathlib.Path(args[args.index('--paths')+1]);folder.mkdir(parents=True,exist_ok=True)
     print('Getting ready',flush=True);time.sleep(.3)
-    print(' 25.0% 2MiB/s ETA 00:03',flush=True);time.sleep(.55)
+    print(' 25.0% 2MiB/s ETA 00:03',flush=True);time.sleep(1.0)
     print(' 55.0% 2MiB/s ETA 00:01',flush=True);time.sleep(.55)
     path=folder/'A cup [tea].mp4';path.write_bytes(b'test media fixture')
     print('GINGERTEA_PATH:'+str(path),flush=True)
@@ -54,6 +55,8 @@ def main():
             "GINGERTEA_DATA_DIR": str(folder / "data"),
             "GINGERTEA_YT_DLP": str(backend),
             "TERM": "xterm-256color",
+            "TERM_PROGRAM": "Apple_Terminal",
+            "NO_COLOR": "1",
         }
         env.pop("GINGERTEA_NO_ANIMATION", None)
         app = Terminal(RUST, env)
@@ -71,11 +74,18 @@ def main():
             app.send("\x1b[200~https://example.test/tea\x1b[201~")
             app.wait("Getting video details")
             assert "https://example.test/tea" in capture(app)
+            app.settle(0.02)
             before = capture(app)
+            input_y = next(i for i, row in enumerate(before.splitlines()) if "URL · pasted" in row)
+            cells = styles(app)
+            border_before = [cells[input_y + 2, x][1] for x in range(3, 117)]
             frames.append(("Pasted link", capture(app)))
             app.settle(0.18)
             after = capture(app)
             assert before != after, "Loading indicator did not advance"
+            cells = styles(app)
+            border_after = [cells[input_y + 2, x][1] for x in range(3, 117)]
+            assert border_before != border_after, "Paste border sweep did not move"
             app.wait("A cup of ginger tea")
             app.settle(0.3)
             frames.append(("Details ready", capture(app)))
@@ -96,6 +106,19 @@ def main():
             assert any("██████" in line for line in after.splitlines() if "25.0%" in line), (
                 "25% progress was not reflected in the classic bar"
             )
+            row, line = next(
+                (i, line) for i, line in enumerate(before.splitlines()) if "25.0%" in line
+            )
+            x = line.index("█")
+            first = styles(app)
+            colors = tuple(first[row, x + i][1] for i in range(6))
+            moved = False
+            for _ in range(10):
+                app.settle(0.06)
+                cells = styles(app)
+                if tuple(cells[row, x + i][1] for i in range(6)) != colors:
+                    moved = True
+            assert moved, "Download fill shimmer did not move"
             app.wait("Queue finished")
             frames.append(("Finished", capture(app)))
             app.settle(3.2)
@@ -134,8 +157,10 @@ def main():
         results["checks"] = [
             "character resolve",
             "paste acknowledgment",
+            "moving paste border sweep",
             "metadata loading",
             "active download progress",
+            "moving highlight within truthful download progress",
             "completion settles",
             "settings persistence",
             "motion disabled via settings",

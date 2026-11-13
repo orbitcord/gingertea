@@ -2,7 +2,7 @@
 use ratatui::style::Color;
 use std::time::{Duration, Instant};
 pub const RESOLVE_MS: u64 = 700;
-const ACK_MS: u64 = 220;
+const ACK_MS: u64 = 480;
 const READY_MS: u64 = 240;
 const FINISH_MS: u64 = 280;
 
@@ -51,6 +51,27 @@ impl Motion {
         } else {
             0.
         }
+    }
+    pub fn paste_sweep(&self, now: Instant, column: usize, width: usize) -> f64 {
+        if !self.enabled {
+            return 0.;
+        }
+        let Some(at) = self.pasted else {
+            return 0.;
+        };
+        let elapsed = now.saturating_duration_since(at).as_millis() as f64;
+        if elapsed >= ACK_MS as f64 {
+            return 0.;
+        }
+        let head = elapsed / ACK_MS as f64 * (width + 8) as f64;
+        (1. - (column as f64 - head).abs() / 8.).max(0.)
+    }
+    pub fn shimmer(&self, now: Instant, column: usize, filled: usize) -> f64 {
+        if !self.enabled || filled == 0 {
+            return 0.;
+        }
+        let head = (self.elapsed(now) / 80) as usize % (filled + 8);
+        (1. - (column as f64 - head as f64).abs() / 4.).max(0.)
     }
     pub fn ready_strength(&self, now: Instant) -> f64 {
         if self.enabled {
@@ -128,6 +149,24 @@ mod tests {
         assert!(m.interval(now, true).is_none());
     }
     #[test]
+    fn paste_sweep_and_progress_shimmer_move_and_stop() {
+        let now = Instant::now();
+        let mut m = Motion::new(true, now);
+        m.pasted = Some(now);
+        assert!(m.paste_sweep(now, 0, 80) > m.paste_sweep(now, 40, 80));
+        assert!(
+            m.paste_sweep(now + Duration::from_millis(220), 40, 80) > m.paste_sweep(now, 40, 80)
+        );
+        assert_eq!(m.paste_sweep(now + Duration::from_secs(1), 40, 80), 0.);
+        assert_ne!(
+            m.shimmer(now, 0, 6),
+            m.shimmer(now + Duration::from_millis(160), 0, 6)
+        );
+        m.enabled = false;
+        assert_eq!(m.paste_sweep(now, 0, 80), 0.);
+        assert_eq!(m.shimmer(now, 0, 6), 0.);
+    }
+    #[test]
     fn progress_is_truthful() {
         assert_eq!(percentage("Converting 30%"), Some(0.3));
         assert_eq!(percentage("  15.3% 1MiB/s ETA 00:03"), Some(0.153));
@@ -140,6 +179,6 @@ mod tests {
         m.pasted = Some(now);
         assert_eq!(m.input_strength(now), 1.);
         assert!(m.input_strength(now + Duration::from_millis(100)) < 1.);
-        assert_eq!(m.input_strength(now + Duration::from_millis(220)), 0.);
+        assert_eq!(m.input_strength(now + Duration::from_millis(480)), 0.);
     }
 }

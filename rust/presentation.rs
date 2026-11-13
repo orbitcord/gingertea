@@ -39,15 +39,15 @@ impl Workspace {
             )),
             status: clip(Rect::new(x, status_y, width, 1)),
             tabs: clip(Rect::new(x, tabs_y, width, tabs_height)),
-            input: clip(Rect::new(x, input_y, width.saturating_sub(4), 3)),
-            card: clip(Rect::new(x, card_y, width.saturating_sub(4), card_height)),
+            input: clip(Rect::new(x, input_y, width, 3)),
+            card: clip(Rect::new(x, card_y, width, card_height)),
             queue: clip(Rect::new(
                 x,
                 queue_y,
-                width.saturating_sub(4),
+                width,
                 footer_y.saturating_sub(queue_y),
             )),
-            footer: clip(Rect::new(area.x, footer_y, area.width, footer_height)),
+            footer: clip(Rect::new(x, footer_y, width, footer_height)),
         }
     }
 }
@@ -59,7 +59,7 @@ fn rule(f: &mut Frame, area: Rect, title: &str, color: Color, p: TeaColors) {
         Block::default()
             .borders(Borders::TOP)
             .title(Span::styled(
-                format!("─{title}"),
+                format!("─ {title} "),
                 Style::default().fg(p.primary).bold(),
             ))
             .border_style(Style::default().fg(color)),
@@ -199,18 +199,39 @@ fn footer_keys(files: bool, typing: bool) -> Vec<(&'static str, &'static str, Ui
 }
 fn footer_lines(keys: &[(&str, &str, UiAction)], width: u16) -> Vec<Vec<usize>> {
     let room = width.saturating_sub(4) as usize;
-    let mut rows = vec![vec![]];
-    let mut used = 0;
-    for (i, (key, label, _)) in keys.iter().enumerate() {
-        let cells = key.len() + 3 + label.len();
-        if used > 0 && used + 3 + cells > room {
-            rows.push(Vec::new());
-            used = 0;
+    for count in 1..=keys.len().max(1) {
+        let mut rows = Vec::new();
+        let mut next = 0;
+        for row in 0..count {
+            let len = keys.len() / count + usize::from(row < keys.len() % count);
+            rows.push((next..next + len).collect::<Vec<_>>());
+            next += len;
         }
-        used += cells + if used > 0 { 3 } else { 0 };
-        rows.last_mut().unwrap().push(i);
+        let columns = footer_columns(keys, &rows);
+        if columns.iter().sum::<usize>() + columns.len().saturating_sub(1) * 3 <= room {
+            return rows;
+        }
     }
-    rows
+    keys.iter().enumerate().map(|(i, _)| vec![i]).collect()
+}
+fn footer_columns(keys: &[(&str, &str, UiAction)], rows: &[Vec<usize>]) -> Vec<usize> {
+    (0..rows.iter().map(Vec::len).max().unwrap_or(0))
+        .map(|col| {
+            rows.iter()
+                .filter_map(|row| row.get(col))
+                .map(|i| {
+                    let (key, label, _) = &keys[*i];
+                    let width = key.len() + 3 + label.len();
+                    if ["tab", "esc"].contains(key) {
+                        width.max(14)
+                    } else {
+                        width
+                    }
+                })
+                .max()
+                .unwrap_or(0)
+        })
+        .collect()
 }
 impl App {
     fn hit(&mut self, rect: Rect, action: UiAction) {
@@ -321,7 +342,9 @@ impl App {
         let short = area.height < 30;
         let keys = footer_keys(files, self.editing);
         let key_rows = footer_lines(&keys, area.width);
-        let footer_height = (key_rows.len() as u16 + 1).clamp(2, 4);
+        let footer_height = (key_rows.len() as u16 + 1)
+            .max(2)
+            .min(area.height.saturating_sub(4).max(2));
         let card_height = if files {
             if self.files.is_empty() {
                 5
@@ -411,13 +434,44 @@ impl App {
         let input = Block::bordered()
             .border_type(BorderType::Rounded)
             .title(Span::styled(
-                if files { "─ files " } else { "─ URL " },
+                if files {
+                    " files "
+                } else if self.motion.input_strength(now) > 0. {
+                    " URL · pasted "
+                } else {
+                    " URL "
+                },
                 Style::default()
                     .fg(if self.editing { p.primary } else { p.muted })
                     .bold(),
             ))
             .border_style(Style::default().fg(border));
         f.render_widget(input, workspace.input);
+        if workspace.input.height == 3 {
+            let width = workspace.input.width.saturating_sub(2);
+            let spans = (0..width)
+                .map(|i| {
+                    Span::styled(
+                        "─",
+                        Style::default().fg(motion::mix(
+                            border,
+                            p.foreground,
+                            self.motion.paste_sweep(now, i as usize, width as usize),
+                        )),
+                    )
+                })
+                .collect::<Vec<_>>();
+            f.render_widget(
+                Paragraph::new(Line::from(spans)),
+                Rect::new(
+                    workspace.input.x + 1,
+                    workspace.input.bottom() - 1,
+                    width,
+                    1,
+                ),
+            );
+        }
+
         let inner = Rect::new(
             workspace.input.x + 1,
             workspace.input.y + 1,
@@ -487,19 +541,18 @@ impl App {
                 .border_style(Style::default().fg(p.panel)),
             workspace.footer,
         );
+        let columns = footer_columns(&keys, &key_rows);
+        let grid_width = columns.iter().sum::<usize>() + columns.len().saturating_sub(1) * 3;
+        let grid_x =
+            workspace.footer.x + workspace.footer.width.saturating_sub(grid_width as u16) / 2;
         for (row, indices) in key_rows
             .iter()
             .take(workspace.footer.height.saturating_sub(1) as usize)
             .enumerate()
         {
-            let width = indices
-                .iter()
-                .map(|i| keys[*i].0.len() + 3 + keys[*i].1.len())
-                .sum::<usize>()
-                + indices.len().saturating_sub(1) * 3;
-            let mut x = area.x + area.width.saturating_sub(width as u16) / 2;
+            let mut x = grid_x;
             let y = workspace.footer.y + 1 + row as u16;
-            for i in indices {
+            for (col, i) in indices.iter().enumerate() {
                 let (key, label, action) = &keys[*i];
                 let text = Line::from(vec![
                     Span::styled(
@@ -516,10 +569,10 @@ impl App {
                     ),
                 ]);
                 let width = (key.len() + 3 + label.len()) as u16;
-                let rect = Rect::new(x, y, width, 1).intersection(area);
+                let rect = Rect::new(x, y, width, 1).intersection(workspace.footer);
                 f.render_widget(Paragraph::new(text), rect);
                 self.hit(rect, action.clone());
-                x += width + 3;
+                x += columns[col] as u16 + 3;
             }
         }
         if self.toast.is_some()
@@ -635,37 +688,63 @@ impl App {
         if let Some(selected) = self.theme_picker {
             self.hitboxes.clear();
             self.focusable_buttons.clear();
-            let popup = popup(area, 52, 18);
+            let popup = popup(area, 64, THEMES.len() as u16 + 5);
             f.render_widget(Clear, popup);
+            f.render_widget(
+                Block::default().style(Style::default().bg(p.background).fg(p.foreground)),
+                popup,
+            );
+            f.render_widget(
+                Paragraph::new(Line::from(vec![
+                    Span::styled("Themes · live preview", Style::default().bold()),
+                    Span::styled(
+                        "  ↑↓ try · Enter keep · Esc back",
+                        Style::default().fg(p.muted),
+                    ),
+                ])),
+                Rect::new(popup.x, popup.y, popup.width, 1),
+            );
+            let list_box = Rect::new(
+                popup.x,
+                popup.y + 2,
+                popup.width,
+                popup.height.saturating_sub(3),
+            );
             f.render_widget(
                 Block::bordered()
                     .border_type(BorderType::Rounded)
-                    .border_style(Style::default().fg(p.primary))
-                    .style(Style::default().bg(p.background)),
-                popup,
+                    .border_style(Style::default().fg(p.primary)),
+                list_box,
             );
-            let rect = inset(popup, 3, 1);
-            f.render_widget(
-                Paragraph::new("Themes · live preview").bold(),
-                Rect::new(rect.x, rect.y, rect.width, 1),
-            );
-            let body = Rect::new(
-                rect.x,
-                rect.y + 2,
-                rect.width,
-                rect.height.saturating_sub(3),
-            );
+            let body = inset(list_box, 1, 1);
             let rows = THEMES
                 .iter()
                 .map(|name| {
-                    ListItem::new(format!(
-                        "{} {name}",
-                        if self.theme_original.as_deref() == Some(*name) {
-                            "✓"
-                        } else {
-                            " "
-                        }
-                    ))
+                    let own = banner::colors(name);
+                    let light = if let Color::Rgb(r, g, b) = own.background {
+                        (r as u32 + g as u32 + b as u32) > 3 * 150
+                    } else {
+                        false
+                    };
+                    ListItem::new(Line::from(vec![
+                        Span::styled("■", Style::default().fg(own.primary).bg(own.panel)),
+                        Span::raw(format!(
+                            " {} {name}",
+                            if self.theme_original.as_deref() == Some(*name) {
+                                "✓"
+                            } else {
+                                " "
+                            }
+                        )),
+                        Span::styled(
+                            if light { "  light" } else { "" },
+                            Style::default().fg(if *name == THEMES[selected] {
+                                on_fill(p.primary, 0.90)
+                            } else {
+                                p.muted
+                            }),
+                        ),
+                    ]))
                 })
                 .collect::<Vec<_>>();
             let mut state = ListState::default()
@@ -689,15 +768,12 @@ impl App {
                     UiAction::Theme(offset + row as usize),
                 );
             }
-            f.render_widget(
-                Paragraph::new(if self.status.starts_with("Could not save theme:") {
-                    self.status.as_str()
-                } else {
-                    "↑↓ / Tab move · Enter save · Esc cancel"
-                })
-                .style(Style::default().fg(p.muted)),
-                Rect::new(rect.x, rect.bottom().saturating_sub(1), rect.width, 1),
-            );
+            if self.status.starts_with("Could not save theme:") {
+                f.render_widget(
+                    Paragraph::new(self.status.as_str()).style(Style::default().fg(p.error)),
+                    Rect::new(popup.x, popup.bottom().saturating_sub(1), popup.width, 1),
+                );
+            }
         }
         if let Some((index, values, selected)) = self.dropdown.clone() {
             let anchor = self
@@ -797,6 +873,25 @@ impl App {
                 .wrap(Wrap { trim: true }),
                 body,
             );
+            if body.height >= 3 && self.motion.enabled {
+                let width = body.width.min(40);
+                let spans = (0..width)
+                    .map(|i| {
+                        Span::styled(
+                            "━",
+                            Style::default().fg(motion::mix(
+                                p.panel,
+                                p.primary,
+                                self.motion.shimmer(now, i as usize, width as usize),
+                            )),
+                        )
+                    })
+                    .collect::<Vec<_>>();
+                f.render_widget(
+                    Paragraph::new(Line::from(spans)),
+                    Rect::new(body.x, body.y + 2, width, 1),
+                );
+            }
             return;
         }
         if let Some(error) = self.probe_error.clone() {
@@ -1258,7 +1353,22 @@ impl App {
                     };
                     Span::styled(
                         "█",
-                        Style::default().fg(if filled { color } else { p.panel }),
+                        Style::default().fg(if filled {
+                            let count = fraction
+                                .map(|v| (width as f64 * v).round() as usize)
+                                .unwrap_or(width as usize);
+                            if j.started && !j.done {
+                                motion::mix(
+                                    color,
+                                    p.foreground,
+                                    self.motion.shimmer(now, i as usize, count) * 0.65,
+                                )
+                            } else {
+                                color
+                            }
+                        } else {
+                            p.panel
+                        }),
                     )
                 })
                 .collect::<Vec<_>>();
@@ -2353,10 +2463,45 @@ mod tests {
         }
     }
     #[test]
-    fn footer_matches_original_wrapping() {
+    fn footer_rows_balance_and_fit_shared_columns() {
         let k = footer_keys(false, true);
-        let r = footer_lines(&k, 120);
-        assert_eq!(r.len(), 2);
-        assert_eq!(k[*r[0].last().unwrap()].0, "s");
+        for width in [60, 80, 100, 120, 160, 200] {
+            let rows = footer_lines(&k, width);
+            let columns = footer_columns(&k, &rows);
+            assert!(
+                columns.iter().sum::<usize>() + columns.len().saturating_sub(1) * 3
+                    <= width as usize - 4
+            );
+            assert!(
+                rows.iter().map(Vec::len).max().unwrap() - rows.iter().map(Vec::len).min().unwrap()
+                    <= 1
+            );
+            let shortcut_rows = footer_lines(&footer_keys(false, false), width);
+            assert_eq!(
+                footer_columns(&k, &rows),
+                footer_columns(&footer_keys(false, false), &shortcut_rows)
+            );
+            assert_eq!(
+                rows.iter().flatten().copied().collect::<Vec<_>>(),
+                (0..k.len()).collect::<Vec<_>>()
+            );
+        }
+        assert_eq!(footer_lines(&k, 120).len(), 2);
+    }
+    #[test]
+    fn workspace_uses_symmetric_shared_gutters() {
+        for width in [60, 80, 120, 160] {
+            let layout = Workspace::new(Rect::new(0, 0, width, 46), 5, 3);
+            for rect in [
+                layout.tabs,
+                layout.input,
+                layout.card,
+                layout.queue,
+                layout.footer,
+            ] {
+                assert_eq!(rect.x, 2);
+                assert_eq!(width - rect.right(), 2);
+            }
+        }
     }
 }

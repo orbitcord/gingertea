@@ -1,12 +1,14 @@
 {
   "idle_after_queue_bytes_per_s": 0.0,
   "idle_after_queue_cpu_percent": 0.0,
-  "idle_after_queue_rss_mib": 5.828125,
+  "idle_after_queue_rss_mib": 5.734375,
   "checks": [
     "character resolve",
     "paste acknowledgment",
+    "moving paste border sweep",
     "metadata loading",
     "active download progress",
+    "moving highlight within truthful download progress",
     "completion settles",
     "settings persistence",
     "motion disabled via settings",

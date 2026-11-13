@@ -44,7 +44,11 @@ def main():
             output = ROOT / "benchmarks/results"
             (output / "python-design-reference.txt").write_text("\n".join(before).rstrip() + "\n")
             (output / "rust-design-restored.txt").write_text("\n".join(after).rstrip() + "\n")
-            for row in [i for i in range(46) if i != 8]:
+            # These rows intentionally change for the requested shared gutters,
+            # padded rule labels and balanced footer grid. Preserve the rest.
+            changed_rows = {8, 13, 14, 15, 17, 23, 43, 44, 45}
+            preserved_rows = [i for i in range(46) if i not in changed_rows]
+            for row in preserved_rows:
                 assert before[row] == after[row], (
                     f"Row {row} differs:\nPython: {before[row]!r}\nRust:   {after[row]!r}"
                 )
@@ -77,7 +81,12 @@ def main():
             rust.settle(0.12)
             results = {
                 "reference": "retained Python app rendered at 120x46",
-                "matched_rows": [i for i in range(46) if i != 8],
+                "matched_rows": preserved_rows,
+                "intentional_updates": [
+                    "shared two-cell gutters",
+                    "spaced rule labels",
+                    "balanced aligned footer",
+                ],
                 "checks": [
                     "original block wordmark",
                     "original workspace spacing",

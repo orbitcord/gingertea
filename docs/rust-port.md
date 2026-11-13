@@ -247,3 +247,44 @@ Risks: these checks verify controlled terminal output and interactions, not a
 native Terminal screenshot or every optional codec/remote-site combination.
 The original application's full state space is larger than the tested paths;
 the 45-row comparison covers the empty workspace, not every menu state.
+
+
+## Shared gutters, responsive footer and motion polish
+
+The supplied screenshots exposed inconsistent right edges: tabs used terminal
+width minus four, while URL/Video/Downloads used width minus eight and the footer
+rule ran edge to edge. These surfaces now share two-cell side gutters, with
+padded rule titles. Their vertical section rhythm and the original wordmark,
+metadata, buttons and menus are retained.
+
+The previous footer greedily filled its first row and centered each wrapped row
+independently. It now chooses the smallest number of rows whose shared column
+widths fit, distributes shortcuts evenly across those rows, and aligns every row
+to the same column starts. All shortcuts remain visible at tested widths.
+Tab/Esc reserves a constant slot so leaving the input does not move the grid.
+`benchmarks/layout_check.py` verifies symmetric edges and rendered column starts
+at 60/80/100/120/160 columns (4/3/2/2/2 footer rows), plus a live shrink from 160 to
+60 columns. It also checks ten independently colored theme swatches.
+
+The theme picker follows the supplied compact reference: inline navigation help,
+a rounded list, one accent-colored square per theme, explicit light-theme tags,
+and an accent-filled selected row. Live preview, persistence, rollback and
+scrolling remain supported in short terminals. Paste acknowledgment now includes
+a 480 ms sweep along the URL border and a temporary pasted label. Lookup has a
+moving accent below its status. Downloads shimmer only within their actual filled
+progress, preserving truthful percentages; unknown progress retains its activity
+indicator. Everything respects disabled motion and stops after work completes.
+
+Verification includes Rust tests, Clippy, release build, responsive layout checks,
+full/compact theme interactions, existing UI controls and real mixed-file
+conversion, and motion checks that inspect actual per-cell colors in the paste
+border and progress fill. The unchanged original workspace rows remain compared
+against Python; intentionally modified border/title/footer rows have new direct
+alignment assertions rather than obsolete pixel equality checks. The terminal
+style decoder is shared by the color acceptance scripts. Results are stored in
+`benchmarks/results/layout.json`, `themes-preview.txt`, `motion.json` and the
+updated design captures.
+
+Risks: native Terminal screenshots cannot be inspected through computer use in
+this environment; validation uses controlled terminal output. Extremely tiny
+windows may not have enough rows for every workspace region simultaneously.

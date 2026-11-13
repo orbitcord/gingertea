@@ -84,8 +84,9 @@ differ from the old Pillow implementation.
 
 ## Motion
 
-The header resolves into `gingertea` on launch. Paste feedback, loading indicators,
-active job progress and a short completion accent respond to actual app events.
+The header resolves into `gingertea` on launch. Pasting a link adds a brief border
+sweep and acknowledgment; metadata lookup has a moving accent. Active downloads
+shimmer inside the actual filled progress bar, followed by a short completion accent.
 Animations stop when work finishes. Set `animations` to `false` in Settings, or
 launch with `GINGERTEA_NO_ANIMATION=1`, for static presentation with live progress.
 
@@ -102,6 +103,7 @@ uv sync --locked
 .venv/bin/python benchmarks/smoke.py
 .venv/bin/python benchmarks/motion_check.py
 .venv/bin/python benchmarks/design_check.py
+.venv/bin/python benchmarks/layout_check.py
 ```
 
 See [the migration and benchmark report](docs/rust-port.md) and

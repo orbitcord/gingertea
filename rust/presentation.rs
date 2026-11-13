@@ -608,6 +608,10 @@ impl App {
             self.draw_list_dialog(f, area, p);
         }
         if self.choosing {
+            for cell in &mut f.buffer_mut().content {
+                cell.fg = motion::mix(p.background, cell.fg, 0.25);
+                cell.bg = motion::mix(p.background, cell.bg, 0.35);
+            }
             self.hitboxes.clear();
             self.focusable_buttons.clear();
             self.draw_playlist_dialog(f, area, p);
@@ -1948,123 +1952,254 @@ impl App {
         }
     }
     fn draw_playlist_dialog(&mut self, f: &mut Frame, area: Rect, p: TeaColors) {
-        let dialog = popup(area, 80, 36);
+        let dialog = popup(area, 108, 34);
         f.render_widget(Clear, dialog);
         f.render_widget(
             Block::bordered()
                 .border_type(BorderType::Rounded)
-                .border_style(Style::default().fg(p.primary))
+                .border_style(Style::default().fg(p.panel))
                 .style(Style::default().bg(p.background)),
             dialog,
         );
-        let r = inset(dialog, 3, 2);
+        let r = inset(dialog, 2, 1);
+        let title = self
+            .info
+            .as_ref()
+            .and_then(|i| i["title"].as_str())
+            .unwrap_or("Playlist");
+        let count_label = format!(" · {} videos", self.entries.len());
+        let title = clipped(title, r.width.saturating_sub(13 + count_label.len() as u16));
         f.render_widget(
-            Paragraph::new(format!(
-                "Choose videos        {} videos",
-                self.entries.len()
-            ))
-            .bold(),
+            Paragraph::new(Line::from(vec![
+                Span::styled("Pick videos ", Style::default().fg(p.foreground).bold()),
+                Span::styled(
+                    format!("{title}{count_label}"),
+                    Style::default().fg(p.muted),
+                ),
+            ])),
             Rect::new(r.x, r.y, r.width, 1),
         );
-        f.render_widget(
-            Paragraph::new("First").style(Style::default().fg(p.muted)),
-            Rect::new(r.x, r.y + 2, 7, 1),
-        );
-        let first = Rect::new(r.x + 7, r.y + 2, 10, 1);
-        f.render_widget(
-            Paragraph::new(format!(" {}", self.playlist_first)).style(Style::default().bg(
-                if self.playlist_typing {
-                    motion::mix(p.background, p.primary, 0.25)
-                } else {
-                    p.panel
-                },
-            )),
-            first,
-        );
-        self.hit(first, UiAction::PlaylistFirst);
-        f.render_widget(
-            Paragraph::new(format!(
-                "of {}    empty keeps the ticked rows",
-                self.entries.len()
-            ))
-            .style(Style::default().fg(p.muted)),
-            Rect::new(r.x + 18, r.y + 2, r.width.saturating_sub(18), 1),
-        );
+        let bh = if dialog.height >= 24 { 3 } else { 1 };
+        let ty = r.y + 2;
         self.button(
             f,
-            Rect::new(r.x, r.y + 4, 18.min(r.width), 1),
-            "[a] Select all",
+            Rect::new(r.x, ty, 9, bh),
+            "a All",
             false,
             UiAction::PlaylistAll(true),
             p,
         );
         self.button(
             f,
-            Rect::new(r.x + 22, r.y + 4, 20.min(r.width.saturating_sub(22)), 1),
-            "[n] Deselect all",
+            Rect::new(r.x + 11, ty, 10, bh),
+            "n None",
             false,
             UiAction::PlaylistAll(false),
             p,
         );
-        let body = Rect::new(r.x, r.y + 6, r.width, r.height.saturating_sub(10));
-        let rows = self
-            .entries
-            .iter()
-            .enumerate()
-            .map(|(i, e)| {
-                ListItem::new(format!(
-                    "{}  {:02}  {:<48} {}",
-                    if e.selected { "●" } else { "○" },
-                    i + 1,
-                    e.title.chars().take(48).collect::<String>(),
-                    e.detail
-                ))
+        self.button(
+            f,
+            Rect::new(r.x + 23, ty, 12, bh),
+            "i Invert",
+            false,
+            UiAction::PlaylistInvert,
+            p,
+        );
+        for (dx, width, key, label) in [
+            (0, 9, "a", " All"),
+            (11, 10, "n", " None"),
+            (23, 12, "i", " Invert"),
+        ] {
+            f.render_widget(
+                Paragraph::new(Line::from(vec![
+                    Span::styled(key, Style::default().fg(p.primary)),
+                    Span::styled(label, Style::default().fg(p.foreground)),
+                ]))
+                .centered(),
+                Rect::new(r.x + dx, ty + bh / 2, width, 1),
+            );
+        }
+        let inline = r.width >= 68;
+        let fx = if inline { r.x + 38 } else { r.x };
+        let fy = if inline { ty + bh / 2 } else { ty + bh + 1 };
+        f.render_widget(
+            Paragraph::new("│ first").style(Style::default().fg(p.muted)),
+            Rect::new(fx, fy, 8, 1),
+        );
+        let first = Rect::new(fx + 8, fy, 5, 1);
+        f.render_widget(
+            Paragraph::new(if self.playlist_first.is_empty() {
+                " N".into()
+            } else {
+                format!(" {}", self.playlist_first)
             })
-            .collect::<Vec<_>>();
+            .style(
+                Style::default()
+                    .bg(if self.playlist_typing {
+                        motion::mix(p.background, p.primary, 0.25)
+                    } else {
+                        p.panel
+                    })
+                    .fg(p.foreground),
+            ),
+            first,
+        );
+        self.hit(first, UiAction::PlaylistFirst);
+        if self.playlist_typing {
+            f.set_cursor_position((first.x + 1 + self.playlist_first.len().min(3) as u16, fy));
+        }
+        f.render_widget(
+            Paragraph::new("videos only").style(Style::default().fg(p.muted)),
+            Rect::new(fx + 14, fy, r.right().saturating_sub(fx + 14).min(11), 1),
+        );
+        let top = if inline { ty + bh + 1 } else { fy + 2 };
+        let ah = if r.height >= 16 { 3 } else { 1 };
+        let ay = r.bottom().saturating_sub(ah);
+        let bottom = ay.saturating_sub(1);
+        for y in [top, bottom] {
+            f.render_widget(
+                Block::default()
+                    .borders(Borders::TOP)
+                    .border_style(Style::default().fg(p.panel)),
+                Rect::new(r.x, y, r.width, 1),
+            );
+        }
+        let body = Rect::new(r.x, top + 1, r.width, bottom.saturating_sub(top + 1));
         let mut state = ListState::default().with_selected(Some(self.selected));
         f.render_stateful_widget(
-            List::new(rows)
-                .highlight_style(Style::default().bg(p.primary).fg(on_fill(p.primary, 0.90))),
+            List::new(
+                self.entries
+                    .iter()
+                    .map(|_| ListItem::new(""))
+                    .collect::<Vec<_>>(),
+            ),
             body,
             &mut state,
         );
-        let offset = state.offset();
         for row in 0..body
             .height
-            .min(self.entries.len().saturating_sub(offset) as u16)
+            .min(self.entries.len().saturating_sub(state.offset()) as u16)
         {
-            self.hit(
-                Rect::new(body.x, body.y + row, body.width, 1),
-                UiAction::Select(offset + row as usize),
+            let i = state.offset() + row as usize;
+            let entry = &self.entries[i];
+            let checked = self.playlist_checked(i);
+            let active = i == self.selected;
+            let hovered = self.hovered == Some(UiAction::Select(i));
+            let fill = if active || hovered {
+                p.panel
+            } else {
+                p.background
+            };
+            let y = body.y + row;
+            f.render_widget(
+                Block::default().style(Style::default().bg(fill)),
+                Rect::new(body.x, y, body.width, 1),
             );
+            f.render_widget(
+                Paragraph::new(if active { "▎" } else { " " })
+                    .style(Style::default().fg(p.primary).bg(fill)),
+                Rect::new(body.x, y, 1, 1),
+            );
+            f.render_widget(
+                Paragraph::new(if checked { "✓" } else { "·" }).style(
+                    Style::default()
+                        .fg(if checked { p.primary } else { p.muted })
+                        .bg(fill),
+                ),
+                Rect::new(body.x + 2, y, 1, 1),
+            );
+            let time = if entry.seconds > 0. {
+                duration(entry.seconds)
+            } else {
+                "—".into()
+            };
+            let tw = 7.min(body.width);
+            f.render_widget(
+                Paragraph::new(clipped(&entry.title, body.width.saturating_sub(tw + 6))).style(
+                    Style::default()
+                        .fg(if checked { p.foreground } else { p.muted })
+                        .bg(fill),
+                ),
+                Rect::new(body.x + 5, y, body.width.saturating_sub(tw + 6), 1),
+            );
+            f.render_widget(
+                Paragraph::new(time)
+                    .right_aligned()
+                    .style(Style::default().fg(p.muted).bg(fill)),
+                Rect::new(body.right().saturating_sub(tw + 1), y, tw, 1),
+            );
+            self.hit(Rect::new(body.x, y, body.width, 1), UiAction::Select(i));
         }
-        let y = r.bottom().saturating_sub(3);
-        let width = r.width.saturating_sub(2) / 2;
-        let count = self.entries.iter().filter(|e| e.selected).count();
-        self.button(
-            f,
-            Rect::new(r.x, y, width, 3),
-            &format!(
-                "Download {}",
-                if count == self.entries.len() {
-                    "all".into()
+        let selected = self
+            .entries
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| self.playlist_checked(*i))
+            .map(|(_, e)| e)
+            .collect::<Vec<_>>();
+        let seconds: f64 = selected.iter().map(|e| e.seconds).sum();
+        let missing = selected.iter().any(|e| e.seconds <= 0.);
+        let time = if seconds > 0. {
+            format!(
+                " · {}{} min",
+                (seconds / 60.).ceil() as u64,
+                if missing { "+" } else { "" }
+            )
+        } else {
+            String::new()
+        };
+        let label = format!(
+            "Download {}{}{time}",
+            selected.len(),
+            if r.width >= 64 {
+                if selected.len() == 1 {
+                    " video"
                 } else {
-                    count.to_string()
+                    " videos"
                 }
-            ),
-            true,
-            UiAction::ChoosePlaylist,
-            p,
+            } else {
+                ""
+            }
         );
+        let width = (label.len() as u16 + 6).min(r.width.saturating_sub(14));
+        let x = r.right().saturating_sub(width);
         self.button(
             f,
-            Rect::new(r.x + width + 2, y, r.width - width - 2, 3),
+            Rect::new(x.saturating_sub(14), ay, 12, ah),
             "Cancel",
             false,
             UiAction::Close,
             p,
         );
+        self.button(
+            f,
+            Rect::new(x, ay, width, ah),
+            &label,
+            true,
+            UiAction::ChoosePlaylist,
+            p,
+        );
     }
+}
+fn clipped(text: &str, width: u16) -> String {
+    if Span::raw(text).width() <= width as usize {
+        return text.into();
+    }
+    if width == 0 {
+        return String::new();
+    }
+    let mut out = String::new();
+    let mut used = 0;
+    for ch in text.chars() {
+        let cells = Span::raw(ch.to_string()).width();
+        if used + cells >= width as usize {
+            break;
+        }
+        used += cells;
+        out.push(ch);
+    }
+    out.push('…');
+    out
 }
 fn title_case(s: &str) -> String {
     let mut c = s.chars();
@@ -2370,10 +2505,11 @@ impl App {
             UiAction::Select(i) => {
                 self.selected = i;
                 self.editing = false;
-                if self.choosing
-                    && let Some(e) = self.entries.get_mut(i)
-                {
-                    e.selected = !e.selected;
+                if self.choosing {
+                    self.apply_playlist_first();
+                    if let Some(e) = self.entries.get_mut(i) {
+                        e.selected = !e.selected;
+                    }
                 }
             }
             UiAction::Theme(i) => {
@@ -2382,6 +2518,7 @@ impl App {
             }
             UiAction::ChoosePlaylist => self.download_selection(),
             UiAction::PlaylistAll(selected) => self.select_all_playlist(selected),
+            UiAction::PlaylistInvert => self.invert_playlist(),
             UiAction::PlaylistFirst => self.playlist_typing = true,
             UiAction::Retry => {
                 let input = self.input.clone();

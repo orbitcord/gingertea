@@ -345,3 +345,30 @@ playlist image list, item-image fallback and a failed URL followed by a valid
 image. All pass, along with 29 Rust tests, Clippy and the release build. Live
 remote images still depend on their host being reachable; no live YouTube request
 is needed for this regression check.
+
+
+## Reference-inspired playlist picker
+
+The playlist picker now follows the supplied compact list composition: a muted
+playlist name/count beside “Pick videos”, All/None/Invert controls with accent
+shortcut letters, a First N field on the same row when space permits, horizontal
+separators, and bottom-right Cancel/Download actions. The active row uses a quiet
+panel fill and narrow accent edge rather than a full accent stripe. Selected
+items have checkmarks; unchecked titles are muted. Titles truncate by terminal
+cell width before the separate right-aligned duration column, and the background
+workspace is dimmed while the picker is open.
+
+Entries retain numeric durations. The primary action summarizes count and total
+minutes, omitting time when it is entirely unavailable and marking partial totals
+with `+`. First N previews both checks and totals immediately; zero means an
+empty selection and starts no work. Manual toggling and Invert first apply the
+visible First N selection, then clear that override. The actual download action
+is preserved and labelled Download. Tab/Shift+Tab navigates the controls; Space
+or Enter activates them, and Home/End/Page Up/Page Down navigate the list.
+
+Verification: 14 controlled terminal picker checks cover bulk/mouse/keyboard
+selection, Invert, immediate First N count/duration, zero selection, rollback,
+right-aligned times, long-title ellipsis, row colors/edge, scroll keys, keyboard
+Cancel and compact 60×24 controls. Capture: `benchmarks/results/playlist-picker.txt`.
+All 29 Rust tests, Clippy and the release build pass. Unknown remote durations
+remain unavailable until supplied by the extractor; they are not invented.

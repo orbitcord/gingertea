@@ -5,7 +5,15 @@
     "Bulk actions clear First N override",
     "Manual row toggle still works",
     "Zero selection does not download",
-    "Cancel restores original selection"
+    "Cancel restores original selection",
+    "Invert by keyboard and mouse",
+    "First N previews count and duration immediately",
+    "Durations align on the right",
+    "Home/End scroll and compact controls stay visible",
+    "Long titles truncate before right-aligned duration",
+    "Quiet row fill with accent edge",
+    "First zero previews and downloads zero items",
+    "Tab/Space activates Cancel"
   ],
-  "count": 6
+  "count": 14
 }

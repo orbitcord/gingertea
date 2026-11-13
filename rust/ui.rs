@@ -55,7 +55,7 @@ fn theme_label(id: &str) -> &str {
 struct Entry {
     url: String,
     title: String,
-    detail: String,
+    seconds: f64,
     selected: bool,
 }
 struct Job {
@@ -116,6 +116,7 @@ enum UiAction {
     ChoosePlaylist,
     PlaylistFirst,
     PlaylistAll(bool),
+    PlaylistInvert,
     DropdownValue(usize, String),
     Retry,
     Browser(usize),
@@ -396,14 +397,30 @@ impl App {
         self.playlist_typing = false;
         self.dirty = true;
     }
-    fn download_selection(&mut self) {
-        if let Ok(n) = self.playlist_first.parse::<usize>()
-            && n > 0
-        {
-            for (i, e) in self.entries.iter_mut().enumerate() {
-                e.selected = i < n;
+    fn playlist_checked(&self, index: usize) -> bool {
+        if let Ok(n) = self.playlist_first.parse::<usize>() {
+            index < n
+        } else {
+            self.entries.get(index).is_some_and(|e| e.selected)
+        }
+    }
+    fn apply_playlist_first(&mut self) {
+        if let Ok(n) = self.playlist_first.parse::<usize>() {
+            for (i, entry) in self.entries.iter_mut().enumerate() {
+                entry.selected = i < n;
             }
         }
+        self.playlist_first.clear();
+        self.playlist_typing = false;
+    }
+    fn invert_playlist(&mut self) {
+        self.apply_playlist_first();
+        for entry in &mut self.entries {
+            entry.selected = !entry.selected;
+        }
+    }
+    fn download_selection(&mut self) {
+        self.apply_playlist_first();
         if self.entries.iter().any(|e| e.selected) {
             self.choosing = false;
             self.enqueue(Choice::default());
@@ -509,11 +526,7 @@ impl App {
                                             .unwrap_or("")
                                             .into(),
                                         title: v["title"].as_str().unwrap_or("Untitled").into(),
-                                        detail: format!(
-                                            "{}  {}",
-                                            v["channel"].as_str().unwrap_or(""),
-                                            duration(media::number(&v["duration"]))
-                                        ),
+                                        seconds: media::number(&v["duration"]),
                                         selected: true,
                                     })
                                     .collect()
@@ -521,11 +534,7 @@ impl App {
                                 vec![Entry {
                                     url: info["webpage_url"].as_str().unwrap_or(&self.input).into(),
                                     title: info["title"].as_str().unwrap_or("Untitled").into(),
-                                    detail: format!(
-                                        "{}  {}",
-                                        info["channel"].as_str().unwrap_or(""),
-                                        duration(media::number(&info["duration"]))
-                                    ),
+                                    seconds: media::number(&info["duration"]),
                                     selected: true,
                                 }]
                             };
@@ -962,21 +971,76 @@ impl App {
                 KeyCode::Esc => self.cancel_selection(),
                 KeyCode::Char('a') => self.select_all_playlist(true),
                 KeyCode::Char('n') => self.select_all_playlist(false),
+                KeyCode::Char('i') => self.invert_playlist(),
                 KeyCode::Char(c) if c.is_ascii_digit() => {
                     self.playlist_first.push(c);
                     self.playlist_typing = true;
+                    self.focus = Some(UiAction::PlaylistFirst);
                 }
                 KeyCode::Backspace if self.playlist_typing => {
                     self.playlist_first.pop();
                 }
-                KeyCode::Tab => self.playlist_typing = !self.playlist_typing,
+                KeyCode::Tab | KeyCode::BackTab => {
+                    let controls = [
+                        UiAction::PlaylistAll(true),
+                        UiAction::PlaylistAll(false),
+                        UiAction::PlaylistInvert,
+                        UiAction::PlaylistFirst,
+                        UiAction::Select(self.selected),
+                        UiAction::Close,
+                        UiAction::ChoosePlaylist,
+                    ];
+                    let i = controls
+                        .iter()
+                        .position(|a| Some(a) == self.focus.as_ref())
+                        .unwrap_or(4);
+                    let back =
+                        k.code == KeyCode::BackTab || k.modifiers.contains(KeyModifiers::SHIFT);
+                    self.focus = Some(
+                        controls[if back {
+                            (i + controls.len() - 1) % controls.len()
+                        } else {
+                            (i + 1) % controls.len()
+                        }]
+                        .clone(),
+                    );
+                    self.playlist_typing = self.focus == Some(UiAction::PlaylistFirst);
+                }
+                KeyCode::Enter | KeyCode::Char(' ')
+                    if matches!(
+                        self.focus,
+                        Some(
+                            UiAction::PlaylistAll(_)
+                                | UiAction::PlaylistInvert
+                                | UiAction::ChoosePlaylist
+                                | UiAction::Close
+                        )
+                    ) =>
+                {
+                    self.activate(self.focus.clone().unwrap())?;
+                }
                 KeyCode::Enter if self.playlist_typing => self.download_selection(),
-                KeyCode::Up => self.selected = self.selected.saturating_sub(1),
-                KeyCode::Down => {
+                KeyCode::Up
+                | KeyCode::Down
+                | KeyCode::Home
+                | KeyCode::End
+                | KeyCode::PageUp
+                | KeyCode::PageDown => {
+                    self.selected = match k.code {
+                        KeyCode::Up => self.selected.saturating_sub(1),
+                        KeyCode::Down => {
+                            (self.selected + 1).min(self.entries.len().saturating_sub(1))
+                        }
+                        KeyCode::Home => 0,
+                        KeyCode::End => self.entries.len().saturating_sub(1),
+                        KeyCode::PageUp => self.selected.saturating_sub(10),
+                        _ => (self.selected + 10).min(self.entries.len().saturating_sub(1)),
+                    };
                     self.playlist_typing = false;
-                    self.selected = (self.selected + 1).min(self.entries.len().saturating_sub(1));
+                    self.focus = Some(UiAction::Select(self.selected));
                 }
                 KeyCode::Char(' ') | KeyCode::Enter => {
+                    self.apply_playlist_first();
                     if let Some(e) = self.entries.get_mut(self.selected) {
                         e.selected = !e.selected;
                     }
@@ -1312,6 +1376,7 @@ impl App {
                     self.playlist_first.clear();
                     self.playlist_typing = false;
                     self.selected = 0;
+                    self.focus = Some(UiAction::Select(0));
                 }
             }
             KeyCode::Char(' ') => {

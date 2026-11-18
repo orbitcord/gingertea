@@ -15,7 +15,7 @@ Rust · Ratatui · yt-dlp · FFmpeg
 
 [Install](#install) · [Usage](#usage) · [Controls](#controls) · [Development](docs/development.md) · [Releases](https://github.com/orbitcord/gingertea/releases)
 
-![Gingertea 0.3.0 terminal interface](docs/gingertea.png)
+![Gingertea 0.3.0 terminal interface](docs/gingertea-0.3.0.png)
 
 </div>
 

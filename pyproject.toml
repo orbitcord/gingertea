@@ -13,7 +13,7 @@ keywords = ["youtube", "yt-dlp", "downloader", "tui", "terminal", "converter", "
 classifiers = [
     "Environment :: Console",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3",
+    "Programming Language :: Rust",
     "Topic :: Multimedia :: Video",
 ]
 dependencies = [
@@ -25,22 +25,6 @@ dependencies = [
 Homepage = "https://github.com/orbitcord/gingertea"
 Issues = "https://github.com/orbitcord/gingertea/issues"
 
-[dependency-groups]
-dev = [
-    "pytest>=8",
-    "pytest-asyncio>=0.24",
-    "ruff>=0.6",
-    "maturin>=1.9,<2",
-    # Dependencies for the retained Python reference and migration comparisons.
-    "textual>=8.2",
-    "pillow>=10",
-    "platformdirs>=4",
-    "tomli-w>=1.0",
-    "tomli>=2.0; python_version < '3.11'",
-    "pillow-heif>=0.18",
-    "pillow-jxl-plugin>=1.3",
-]
-
 [build-system]
 requires = ["maturin>=1.9,<2"]
 build-backend = "maturin"
@@ -48,20 +32,3 @@ build-backend = "maturin"
 [tool.maturin]
 bindings = "bin"
 include = [{ path = "rust/**", format = "sdist" }]
-
-[tool.uv]
-# Build/install native wheels explicitly; uv sync prepares the reference/test tools.
-package = false
-
-[tool.ruff]
-line-length = 100
-target-version = "py310"
-
-[tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP"]
-ignore = ["E501"]
-
-[tool.pytest.ini_options]
-asyncio_mode = "auto"
-testpaths = ["tests"]
-pythonpath = ["src"]

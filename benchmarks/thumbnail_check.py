@@ -9,7 +9,7 @@ import tempfile
 import threading
 from pathlib import Path
 
-from compare import ROOT, RUST, Terminal
+from terminal import ROOT, RUST, Terminal
 from terminal_cells import styles
 
 BACKEND = r"""#!/usr/bin/env python3

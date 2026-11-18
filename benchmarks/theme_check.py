@@ -9,7 +9,7 @@ import termios
 from pathlib import Path
 
 import tomllib
-from compare import ROOT, RUST, Terminal
+from terminal import ROOT, RUST, Terminal
 
 
 def main():

@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 
 import tomllib
-from compare import ROOT, RUST, Terminal, process_stats
+from terminal import ROOT, RUST, Terminal, process_stats
 from terminal_cells import styles
 
 BACKEND = r"""#!/usr/bin/env python3

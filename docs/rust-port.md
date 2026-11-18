@@ -1,12 +1,17 @@
 # Rust migration
 
+> Historical report from the 0.3.0 port. The legacy Python app, its tests, and
+> migration-only scripts have since been removed. Saved measurements and the
+> Rust planner fixtures remain; Python comparison commands below are historical.
+> See [development](development.md) for current checks.
+
 The 0.3.0 release adds native PyPI wheels and standalone executables for Windows,
 Linux, and Apple Silicon and Intel Macs. The release pipeline validates upgrades
 from 0.2.0, runs the platform test suites, and publishes only after checks pass.
 See [the release notes](releases/0.3.0.md) for installation and migration details.
 The entries below record the development work before this release.
 
-Branch: codex/rust-port. The existing Python implementation remains as a baseline;
+Branch: codex/rust-port. The Python implementation was used as a baseline;
 the new executable has no dependency on gingertea's Python modules. yt-dlp remains
 an independently installed external backend, with FFmpeg/FFprobe and Deno.
 
@@ -48,7 +53,7 @@ compare a Rust UI-only measurement with a Python process including yt-dlp import
 The interface is implemented in Ratatui, retaining the original Textual design
 through cell-based rendering, original branding assets and tea palette values. Clipboard operations use platform commands. JPEG XL and HEIC
 use optional native tools rather than Pillow, so metadata and encoded output are
-not guaranteed byte-for-byte equivalent. The Python environment is retained only
+not guaranteed byte-for-byte equivalent. The Python environment was used only
 for baseline measurements and reference tests.
 
 Risks: live authenticated downloads, subtitles/SponsorBlock behavior against real

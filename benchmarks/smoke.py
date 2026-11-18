@@ -1,13 +1,13 @@
 """Offline acceptance: real yt-dlp over localhost plus the Rust terminal UI."""
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import tempfile
 import threading
-from compare import Terminal, RUST, ROOT, ANSI
+from terminal import Terminal, RUST, ROOT
 
 
 def checked(args, env):
@@ -17,11 +17,14 @@ def checked(args, env):
 
 
 def main():
+    backend = os.environ.get('GINGERTEA_YT_DLP') or shutil.which('yt-dlp')
+    if not backend:
+        raise SystemExit('Install yt-dlp or set GINGERTEA_YT_DLP before running the smoke check.')
     with tempfile.TemporaryDirectory(prefix='gingertea-smoke-') as temp:
         folder = Path(temp)
         env = {**os.environ, 'GINGERTEA_CONFIG_DIR': str(folder / 'config'),
                'GINGERTEA_DATA_DIR': str(folder / 'data'), 'TERM': 'xterm-256color',
-               'GINGERTEA_YT_DLP': str(ROOT / '.venv/bin/yt-dlp')}
+               'GINGERTEA_YT_DLP': backend}
         fixture = folder / 'fixture.mp4'
         subprocess.run(['ffmpeg', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=320x240:rate=10',
                         '-t', '2', '-c:v', 'libx264', str(fixture)], check=True)

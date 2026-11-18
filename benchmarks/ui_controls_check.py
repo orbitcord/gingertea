@@ -8,7 +8,7 @@ import tempfile
 from pathlib import Path
 
 import tomllib
-from compare import ROOT, RUST, Terminal
+from terminal import ROOT, RUST, Terminal
 from motion_check import BACKEND
 from terminal_cells import styles
 

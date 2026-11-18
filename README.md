@@ -1,160 +1,94 @@
-<pre>
- ██████╗ ██╗███╗   ██╗ ██████╗ ███████╗██████╗ ████████╗███████╗ █████╗
-██╔════╝ ██║████╗  ██║██╔════╝ ██╔════╝██╔══██╗╚══██╔══╝██╔════╝██╔══██╗
-██║  ███╗██║██╔██╗ ██║██║  ███╗█████╗  ██████╔╝   ██║   █████╗  ███████║
-██║   ██║██║██║╚██╗██║██║   ██║██╔══╝  ██╔══██╗   ██║   ██╔══╝  ██╔══██║
-╚██████╔╝██║██║ ╚████║╚██████╔╝███████╗██║  ██║   ██║   ███████╗██║  ██║
- ╚═════╝ ╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═╝
-</pre>
+<div align="center">
 
-Download and convert videos, audio and images in your terminal. Version 0.3.0 uses
-Rust and Ratatui for the interface and independent yt-dlp,
-FFmpeg/FFprobe and Deno executables for media processing. The original terminal
-design is retained: large shaded wordmark, tea palettes, two source tabs, rounded
-input, open section rules, thumbnail/metadata card, solid action buttons and
-centered shortcut chips. Dialogs follow the original settings and four-panel
-conversion layouts.
+# gingertea
 
-## Install and update
+Download and convert media in your terminal.
 
-Install a native package with uv or pipx:
+Rust · Ratatui · yt-dlp · FFmpeg
+
+[Install](#install) · [Usage](#usage) · [Controls](#controls) · [Development](docs/development.md) · [Releases](https://github.com/orbitcord/gingertea/releases)
+
+![Gingertea terminal interface](docs/gingertea.png)
+
+</div>
+
+## What you can do
+
+- Download videos, audio, and playlists. Pick individual items or the first N.
+- Convert local video, audio, and images. Trim clips or export frames.
+- Manage the queue, browse history, and preview tea themes.
+
+## Install
 
 ```sh
 uv tool install gingertea
-# or: pipx install gingertea
 gingertea setup
 gingertea
 ```
 
-Existing users can upgrade from the Python version:
+Prefer pipx? Run `pipx install gingertea`, then the same setup command.
+
+Native wheels support Linux x86-64, Windows x86-64, and Apple Silicon and Intel
+Macs. The package manager requires Python 3.10+. The app runs as a native Rust
+executable. Standalone binaries are on [GitHub Releases](https://github.com/orbitcord/gingertea/releases).
+
+`setup` finds or downloads yt-dlp, FFmpeg/FFprobe, and Deno.
+See [media tools](docs/usage.md#media-tools) for optional image codecs.
+
+<details>
+<summary>Updating an existing install</summary>
 
 ```sh
 uv tool upgrade gingertea
-# or: pipx upgrade gingertea
-gingertea --version
+# Or: pipx upgrade gingertea
 gingertea setup
 ```
 
-PyPI wheels contain the Rust executable for Linux x86-64, Windows x86-64, and
-Apple Silicon and Intel Macs. Python 3.10+ is required by the package manager;
-the interface runs natively. yt-dlp and Deno install alongside the app. `setup`
-finds or downloads FFmpeg and other missing tools. Existing settings, download
-history, and playlist archives are reused. Optional image tools are listed below.
+Settings, history, and playlist archives carry over from the Python app.
+For standalone installs, replace the executable with the latest release.
+`gingertea update` updates yt-dlp only.
 
-Standalone executables are also available from
-[GitHub Releases](https://github.com/orbitcord/gingertea/releases). Replace an
-existing standalone executable to update it. `gingertea update` updates yt-dlp;
-use your package manager to update gingertea itself.
+</details>
 
-## Build and run from source
+## Usage
 
 ```sh
-cargo build --release --locked
-./target/release/gingertea setup
-./target/release/gingertea
+gingertea                              # open the terminal app
+gingertea URL                          # load a video or playlist
+gingertea /path/to/file                 # load local media
+gingertea get URL -f mp4                # download a video
+gingertea get URL --audio -f mp3 -q 192  # download audio
+gingertea convert file.mov -f mp4       # convert a local file
 ```
 
-`setup` uses installed tools when available and downloads missing tools into
-Gingertea's data directory. It needs curl and unzip (PowerShell on Windows).
-You can also install the media tools yourself, for example on macOS:
+Conversions preserve originals. Existing output names get numbered suffixes.
+See [clips, frames, and metadata](docs/usage.md#command-line) for more commands.
 
-```sh
-brew install yt-dlp ffmpeg deno
-cargo install --path . --locked
-```
+## Controls
 
-The Rust application does not import or launch the old Python application. yt-dlp
-is still Python software; its standalone executables bundle their own interpreter.
-Python source under `src/` is retained for repeatable migration comparisons.
-
-```sh
-gingertea URL                     # open video details or a playlist
-gingertea /path/to/file           # open local files
-gingertea get URL -f mp4
-gingertea get URL --audio -f mp3 -q 192
-gingertea convert file.mov -f mp4
-gingertea convert file.mp4 -f png --frames -q 1
-gingertea convert file.mp4 -f mp3 --start 1:30 --end 2:00
-gingertea probe file.mp4          # JSON metadata
-gingertea sites youtube
-gingertea update                  # update the external yt-dlp executable
-```
-
-Saved paths go to stdout, progress/errors to stderr. Conversions never replace
-original files. Completed results move out of private staging directories; output
-collisions get numbered names. Cancelled and failed jobs remove staged files.
-
-## Terminal controls
-
-Press Tab after typing to use shortcuts. Esc focuses the input; Enter loads a
-URL, search, or dropped paths. Quoted paths and file URLs are accepted.
+Press **Tab** to leave the input and use shortcuts. **Esc** returns to the input.
 
 | Key | Action |
 | --- | --- |
-| `1` / `2`, Ctrl+T | Download / Convert files |
-| `d` / `a` | Download selected videos / audio |
-| `c` | Format, quality, clips, subtitles, SponsorBlock and conversion extras |
-| `e`, ↑ / ↓, Space | Choose playlist items; `a` selects all, `n` clears, `i` inverts; First previews the first N |
-| `p` / `x` | Pause waiting jobs / cancel first unfinished job |
-| `f` / `r` | Browse files / remove a local file or history record |
-| `h` | Searchable history; Enter opens, `d` reloads, `y` copies the URL |
-| `s` / `3` | Settings |
-| `l` / `4` | Search supported site extractors |
-| `t` | Open the theme picker |
-| `v` / `o` | Load clipboard / open last saved result |
-| `u` / `q` | Update yt-dlp / quit |
+| `1` / `2` | Download / Convert files |
+| `d` / `a` | Download video / audio |
+| `c` / `e` | Conversion options / playlist selection |
+| `p` / `x` | Pause waiting jobs / cancel a job |
+| `h` / `f` | History / files |
+| `s` / `t` | Settings / themes |
+| `q` | Quit |
 
-Click tabs, buttons, shortcut chips, fields and options directly. Tab/Shift+Tab
-moves focus between controls and action buttons; Enter/Space activates a focused
-button. In forms, arrows choose formats/quality or cycle values; Enter opens a
-settings dropdown. Text fields support caret movement, insertion and deletion.
-Ctrl+U clears text, Ctrl+S saves or runs, and Esc cancels. Settings include the
-output directory, filename template, browser cookies (off by default),
-parallelism (1–4), and motion; press `t` for the theme picker. Arrows or Tab preview
-themes, Enter/Space or a click saves, and Esc cancels. Configuration, history and
-playlist archives use the Python app's existing platform directories.
+Tabs, buttons, and options also accept clicks.
+See [all controls and settings](docs/usage.md#terminal-controls).
 
-Local formats retain the original video/audio/image target tables. Image output
-requires the corresponding FFmpeg encoder. JPEG XL uses `cjxl`/`djxl`; HEIC uses
-macOS `sips` or libheif's `heif-enc`/`heif-convert` on other platforms. Install
-optional native image tools separately. Image metadata and encoder output can
-differ from the old Pillow implementation.
+## Build from source
 
-## Motion
-
-The header resolves into `gingertea` on launch. Pasting a link adds a brief border
-sweep and acknowledgment; metadata lookup has a moving accent. Active downloads
-shimmer inside the actual filled progress bar, followed by a short completion accent.
-Animations stop when work finishes. Set `animations` to `false` in Settings, or
-launch with `GINGERTEA_NO_ANIMATION=1`, for static presentation with live progress.
-
-## Validation and benchmarks
+Requires Rust 1.88 or later.
 
 ```sh
-cargo fmt --check
-cargo clippy --locked --all-targets -- -D warnings
-cargo test --locked                 # requires FFmpeg/FFprobe
-cargo build --release --locked
-# The following use the retained Python environment for baseline/testing only:
-uv sync --locked
-PYTHONPATH=src .venv/bin/python benchmarks/compare.py --runs 5
-.venv/bin/python benchmarks/smoke.py
-.venv/bin/python benchmarks/motion_check.py
-.venv/bin/python benchmarks/design_check.py
-.venv/bin/python benchmarks/layout_check.py
+cargo install --path . --locked
+gingertea setup
+gingertea
 ```
 
-See [the migration and benchmark report](docs/rust-port.md) and
-[raw measurements](benchmarks/results/comparison.json). Measurements separate
-idle UI overhead from real conversion time. The smoke check uses a localhost
-server rather than downloading public internet videos.
-
-The old Python documentation is retained in [docs/python-reference.md](docs/python-reference.md).
-The release checks build and test the Rust app and native wheels on Windows,
-Linux, and both Mac architectures, including an upgrade from the Python release.
-Browser login, live site behavior, and optional codec tools depend on your machine
-and installed media tools.
-
-## License
-
-MIT. See [LICENSE](LICENSE).
+[Development and checks](docs/development.md) · [0.3.0 release notes](docs/releases/0.3.0.md) · [MIT license](LICENSE)

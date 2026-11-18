@@ -8,7 +8,7 @@ import tempfile
 import termios
 from pathlib import Path
 
-from compare import ROOT, RUST, Terminal
+from terminal import ROOT, RUST, Terminal
 from terminal_cells import styles
 from ui_controls_check import click
 

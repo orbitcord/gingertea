@@ -1,14 +1,19 @@
 <div align="center">
 
-# gingertea
+<pre>
+ ██████╗ ██╗███╗   ██╗ ██████╗ ███████╗██████╗ ████████╗███████╗ █████╗
+██╔════╝ ██║████╗  ██║██╔════╝ ██╔════╝██╔══██╗╚══██╔══╝██╔════╝██╔══██╗
+██║  ███╗██║██╔██╗ ██║██║  ███╗█████╗  ██████╔╝   ██║   █████╗  ███████║
+██║   ██║██║██║╚██╗██║██║   ██║██╔══╝  ██╔══██╗   ██║   ██╔══╝  ██╔══██║
+╚██████╔╝██║██║ ╚████║╚██████╔╝███████╗██║  ██║   ██║   ███████╗██║  ██║
+ ╚═════╝ ╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═╝
+</pre>
 
 Download and convert media in your terminal.
 
 Rust · Ratatui · yt-dlp · FFmpeg
 
 [Install](#install) · [Usage](#usage) · [Controls](#controls) · [Development](docs/development.md) · [Releases](https://github.com/orbitcord/gingertea/releases)
-
-![Gingertea terminal interface](docs/gingertea.png)
 
 </div>
 
